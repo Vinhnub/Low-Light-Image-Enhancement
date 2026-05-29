@@ -31,7 +31,7 @@ def option():
 
     # train datasets
     parser.add_argument('--data_train_lol_blur'     , type=str, default='./datasets/LOL_blur/train')
-    parser.add_argument('--data_train_lol_v1'       , type=str, default='E:/Pythonfile/Low-Light-Image-Enhancement/data/dataset/LOLv1/train')
+    parser.add_argument('--data_train_lol_v1'       , type=str, default='E:/PythonFile/Project/Low-Light-Image-Enhancement/mydata/dataset/dataset/LOLv1/train')
     parser.add_argument('--data_train_lolv2_real'   , type=str, default='./datasets/LOLv2/Real_captured/Train')
     parser.add_argument('--data_train_lolv2_syn'    , type=str, default='./datasets/LOLv2/Synthetic/Train')
     parser.add_argument('--data_train_SID'          , type=str, default='./datasets/Sony_total_dark/train')
@@ -40,7 +40,7 @@ def option():
 
     # validation input
     parser.add_argument('--data_val_lol_blur'       , type=str, default='./datasets/LOL_blur/eval/low_blur')
-    parser.add_argument('--data_val_lol_v1'         , type=str, default='E:/Pythonfile/Low-Light-Image-Enhancement/data/dataset/LOLv1/test/low')
+    parser.add_argument('--data_val_lol_v1'         , type=str, default='E:/PythonFile/Project/Low-Light-Image-Enhancement/mydata/dataset/dataset/LOLv1/test/low')
     parser.add_argument('--data_val_lolv2_real'     , type=str, default='./datasets/LOLv2/Real_captured/Test/Low')
     parser.add_argument('--data_val_lolv2_syn'      , type=str, default='./datasets/LOLv2/Synthetic/Test/Low')
     parser.add_argument('--data_val_SID'            , type=str, default='./datasets/Sony_total_dark/eval/short')
@@ -50,7 +50,7 @@ def option():
 
     # validation groundtruth
     parser.add_argument('--data_valgt_lol_blur'     , type=str, default='./datasets/LOL_blur/eval/high_sharp_scaled/')
-    parser.add_argument('--data_valgt_lol_v1'       , type=str, default='E:/Pythonfile/Low-Light-Image-Enhancement/data/dataset/LOLv1/test/high')
+    parser.add_argument('--data_valgt_lol_v1'       , type=str, default='E:/PythonFile/Project/Low-Light-Image-Enhancement/mydata/dataset/dataset/LOLv1/test/high/')
     parser.add_argument('--data_valgt_lolv2_real'   , type=str, default='./datasets/LOLv2/Real_captured/Test/Normal/')
     parser.add_argument('--data_valgt_lolv2_syn'    , type=str, default='./datasets/LOLv2/Synthetic/Test/Normal/')
     parser.add_argument('--data_valgt_SID'          , type=str, default='./datasets/Sony_total_dark/eval/long/')
