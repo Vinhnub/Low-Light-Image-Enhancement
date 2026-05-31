@@ -41,7 +41,7 @@ def train(epoch):
     loss_print = 0
     pic_cnt = 0
     loss_last_10 = 0
-    loss_lsgd_print = 0
+    #loss_lsgd_print = 0
     pic_last_10 = 0
     train_len = len(training_data_loader)
     iter = 0
@@ -74,19 +74,18 @@ def train(epoch):
             return_feats=True
         )
             
-        with torch.no_grad():
-            _, feat_teacher = model(
-                input_gt,
-                return_feats=True
-            )
+        # with torch.no_grad():
+        #     _, feat_teacher = model(
+        #         input_gt,
+        #         return_feats=True
+        #     )
 
         gt_rgb = im2
         output_hvi = model.HVIT(output_rgb)
         gt_hvi = model.HVIT(gt_rgb)
-        loss_hvi = L1_loss(output_hvi, gt_hvi) + D_loss(output_hvi, gt_hvi) + E_loss(output_hvi, gt_hvi) + opt.P_weight * P_loss(output_hvi, gt_hvi)[0]
-        loss_rgb = L1_loss(output_rgb, gt_rgb) + D_loss(output_rgb, gt_rgb) + E_loss(output_rgb, gt_rgb) + opt.P_weight * P_loss(output_rgb, gt_rgb)[0]
-        loss_lsgd = LSGD_loss(feat_student, feat_teacher)
-        loss = loss_rgb + opt.HVI_weight * loss_hvi + loss_lsgd
+        loss_hvi = L1_loss(output_hvi, gt_hvi) + D_loss(output_hvi, gt_hvi) + E_loss(output_hvi, gt_hvi) + opt.P_weight * P_loss(output_hvi, gt_hvi)[0] + LSGD_loss(output_hvi, gt_hvi)
+        loss_rgb = L1_loss(output_rgb, gt_rgb) + D_loss(output_rgb, gt_rgb) + E_loss(output_rgb, gt_rgb) + opt.P_weight * P_loss(output_rgb, gt_rgb)[0] + LSGD_loss(output_rgb, gt_rgb)
+        loss = loss_rgb + opt.HVI_weight * loss_hvi #+ LSGD_loss(feat_student, feat_teacher)
         iter += 1
         
         if opt.grad_clip:
@@ -98,12 +97,12 @@ def train(epoch):
         
         loss_print = loss_print + loss.item()
         loss_last_10 = loss_last_10 + loss.item()
-        loss_lsgd_print += loss_lsgd.item()
+        #loss_lsgd_print += loss_lsgd.item()
         pic_cnt += 1
         pic_last_10 += 1
         if iter == train_len:
-            print("===> Epoch[{}]: Loss: {:.4f} || LSGD Loss :{:.4f} Learning rate: lr={}.".format(epoch,
-                loss_last_10/pic_last_10, loss_lsgd_print/pic_cnt, optimizer.param_groups[0]['lr']))
+            print("===> Epoch[{}]: Loss: {:.4f} || Learning rate: lr={}.".format(epoch,
+                loss_last_10/pic_last_10, optimizer.param_groups[0]['lr']))
             loss_last_10 = 0
             pic_last_10 = 0
             output_img = transforms.ToPILImage()((output_rgb)[0].squeeze(0))
@@ -202,7 +201,7 @@ def init_loss():
     D_loss = SSIM(weight=D_weight).cuda()
     E_loss = EdgeLoss(loss_weight=E_weight).cuda()
     P_loss = PerceptualLoss({'conv1_2': 1, 'conv2_2': 1,'conv3_4': 1,'conv4_4': 1}, perceptual_weight = P_weight ,criterion='mse').cuda()
-    LSGD_loss = LSGDLoss(loss_weight=LSGD_weight).cuda()
+    LSGD_loss = RegionLSGDLoss(loss_weight=LSGD_weight).cuda()
 
     return (
         L1_loss,
