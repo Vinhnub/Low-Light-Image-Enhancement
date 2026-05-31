@@ -139,5 +139,9 @@ class CIDNet(nn.Module, PyTorchModelHubMixin):
         hvi = self.trans.HVIT(x)
         return hvi
     
+    def RGB2YCrCb(self, x):
+        ycrcb = self.trans.RGB2YCrCb(x)
+        return ycrcb
+    
     
 

@@ -313,7 +313,7 @@ class RegionLSGDLoss(nn.Module):
         loss_weight=1.0,
         reduction='mean',
         use_dark_weight=True,
-        eps=1e-6
+        eps=1e-6,
     ):
 
         super(RegionLSGDLoss, self).__init__()
@@ -354,7 +354,7 @@ class RegionLSGDLoss(nn.Module):
 
         return grad_x, grad_y
 
-    def compute_weight_map(self, gt):
+    def compute_weight_map(self, gt, is_hvi):
         """
         Dark-region weighting.
 
@@ -376,7 +376,7 @@ class RegionLSGDLoss(nn.Module):
                 0.299 * gt[:, 0:1]
                 + 0.587 * gt[:, 1:2]
                 + 0.114 * gt[:, 2:3]
-            )
+            ) if is_hvi else gt[:, 2:3]
 
         # -------------------
         # grayscale
@@ -408,7 +408,7 @@ class RegionLSGDLoss(nn.Module):
 
         return x
 
-    def forward(self, pred, gt):
+    def forward(self, pred, gt, is_hvi=False):
         """
         pred:
             output_rgb or output_hvi
@@ -437,7 +437,7 @@ class RegionLSGDLoss(nn.Module):
         # -------------------
         if self.use_dark_weight:
 
-            weight = self.compute_weight_map(gt)
+            weight = self.compute_weight_map(gt, is_hvi=is_hvi)
 
             weight_x = weight[:, :, :, 1:]
             weight_y = weight[:, :, 1:, :]

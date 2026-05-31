@@ -83,7 +83,7 @@ def train(epoch):
         gt_rgb = im2
         output_hvi = model.HVIT(output_rgb)
         gt_hvi = model.HVIT(gt_rgb)
-        loss_hvi = L1_loss(output_hvi, gt_hvi) + D_loss(output_hvi, gt_hvi) + E_loss(output_hvi, gt_hvi) + opt.P_weight * P_loss(output_hvi, gt_hvi)[0] + LSGD_loss(output_hvi, gt_hvi)
+        loss_hvi = L1_loss(output_hvi, gt_hvi) + D_loss(output_hvi, gt_hvi) + E_loss(output_hvi, gt_hvi) + opt.P_weight * P_loss(output_hvi, gt_hvi)[0] + LSGD_loss(output_hvi, gt_hvi, is_hvi=True)
         loss_rgb = L1_loss(output_rgb, gt_rgb) + D_loss(output_rgb, gt_rgb) + E_loss(output_rgb, gt_rgb) + opt.P_weight * P_loss(output_rgb, gt_rgb)[0] + LSGD_loss(output_rgb, gt_rgb)
         loss = loss_rgb + opt.HVI_weight * loss_hvi #+ LSGD_loss(feat_student, feat_teacher)
         iter += 1

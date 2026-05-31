@@ -10,8 +10,8 @@ datasets:
   train:
     name: TrainSet
     type: Dataset_PairedImage
-    dataroot_gt: data/LOLv1/Train/target
-    dataroot_lq: data/LOLv1/Train/input
+    dataroot_gt: E:/Pythonfile/Low-Light-Image-Enhancement/mydata/dataset/LOLv1/train/high
+    dataroot_lq: E:/Pythonfile/Low-Light-Image-Enhancement/mydata/dataset/LOLv1/train/low
     geometric_augs: true
 
     filename_tmpl: '{}'
@@ -43,8 +43,8 @@ datasets:
   val:
     name: ValSet
     type: Dataset_PairedImage
-    dataroot_gt: data/LOLv1/Test/target
-    dataroot_lq: data/LOLv1/Test/input
+    dataroot_gt: E:/Pythonfile/Low-Light-Image-Enhancement/mydata/dataset/LOLv1/test/high
+    dataroot_lq: E:/Pythonfile/Low-Light-Image-Enhancement/mydata/dataset/LOLv1/test/low
     io_backend:
       type: disk
 
