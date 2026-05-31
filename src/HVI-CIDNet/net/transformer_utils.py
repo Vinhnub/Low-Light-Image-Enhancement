@@ -29,7 +29,9 @@ class LayerNorm(nn.Module):
             return x
 
 class NormDownsample(nn.Module):
-    def __init__(self,in_ch,out_ch,scale=0.5,use_norm=False):
+    def __init__(self,in_ch,out_ch,
+                 scale=0.5,
+                 use_norm=False):
         super(NormDownsample, self).__init__()
         self.use_norm=use_norm
         if self.use_norm:
@@ -37,6 +39,7 @@ class NormDownsample(nn.Module):
         self.prelu = nn.PReLU()
         self.down = nn.Sequential(
             nn.Conv2d(in_ch, out_ch,kernel_size=3,stride=1, padding=1, bias=False),
+            #SeparableConv(in_ch, out_ch),
             nn.UpsamplingBilinear2d(scale_factor=scale))
     def forward(self, x):
         x = self.down(x)
@@ -56,8 +59,11 @@ class NormUpsample(nn.Module):
         self.prelu = nn.PReLU()
         self.up_scale = nn.Sequential(
             nn.Conv2d(in_ch,out_ch,kernel_size=3,stride=1, padding=1, bias=False),
+            #SeparableConv(in_ch, out_ch),
             nn.UpsamplingBilinear2d(scale_factor=scale))
-        self.up = nn.Conv2d(out_ch*2,out_ch,kernel_size=1,stride=1, padding=0, bias=False)
+        self.up = nn.Conv2d(out_ch*2,out_ch,kernel_size=1,
+                            stride=1, padding=0, 
+                            bias=False)
             
     def forward(self, x,y):
         x = self.up_scale(x)
@@ -69,3 +75,27 @@ class NormUpsample(nn.Module):
         else:
             return x
  
+class SeparableConv(nn.Module):
+    def __init__(self, in_ch, out_ch):
+        super(SeparableConv, self).__init__()
+
+        # depthwise
+        self.depthwise = nn.Conv2d(
+            in_ch,
+            in_ch,
+            kernel_size=3,
+            padding=1,
+            groups=in_ch
+        )
+
+        # pointwise
+        self.pointwise = nn.Conv2d(
+            in_ch,
+            out_ch,
+            kernel_size=1
+        )
+
+    def forward(self, x):
+        x = self.depthwise(x)
+        x = self.pointwise(x)
+        return x
