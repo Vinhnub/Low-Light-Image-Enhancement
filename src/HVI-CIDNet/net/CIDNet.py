@@ -68,7 +68,7 @@ class CIDNet(nn.Module, PyTorchModelHubMixin):
         
         self.trans = RGB_HVI()
         
-    def forward(self, x):
+    def forward(self, x, return_feats=False):
         dtypes = x.dtype
         hvi = self.trans.HVIT(x)
         i = hvi[:,2,:,:].unsqueeze(1).to(dtypes)
@@ -118,6 +118,20 @@ class CIDNet(nn.Module, PyTorchModelHubMixin):
         
         output_hvi = torch.cat([hv_0, i_dec0], dim=1) + hvi
         output_rgb = self.trans.PHVIT(output_hvi)
+
+        if return_feats:
+            feats = {
+                'i_enc2': i_enc2,
+                'hv_2': hv_2,
+                'i_enc3': i_enc3,
+                'hv_3': hv_3,
+                'i_enc4': i_enc4,
+                'hv_4': hv_4,
+                'i_dec2': i_dec2,
+                'i_dec1': i_dec1
+            }
+
+            return output_rgb, feats
 
         return output_rgb
     
