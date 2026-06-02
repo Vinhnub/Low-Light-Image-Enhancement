@@ -190,4 +190,265 @@ class SSIM(torch.nn.Module):
         return (1. - map_ssim(img1, img2, window, self.window_size, channel, self.size_average)) * self.weight
 
 
+class LSGDLoss(nn.Module):
+    """
+    Local Structure Gradient Distillation Loss
 
+    Match first-order variations between
+    student features and teacher features.
+
+    Args:
+        loss_weight (float):
+            Global weight of LSGD loss.
+
+        reduction (str):
+            'none' | 'mean' | 'sum'
+
+        feature_weights (dict):
+            weight of each feature level
+    """
+
+    def __init__(
+        self,
+        loss_weight=1.0,
+        reduction='mean',
+        feature_weights=None
+    ):
+
+        super(LSGDLoss, self).__init__()
+
+        if reduction not in _reduction_modes:
+            raise ValueError(
+                f'Unsupported reduction mode: '
+                f'{reduction}. '
+                f'Supported ones are: '
+                f'{_reduction_modes}'
+            )
+
+        self.loss_weight = loss_weight
+        self.reduction = reduction
+
+        # default CIDNet weights
+        if feature_weights is None:
+
+            feature_weights = {
+                'i_enc2': 0.10,
+                'hv_2': 0.10,
+                'i_enc3': 0.15,
+                'hv_3': 0.15,
+                'i_enc4': 0.20,
+                'hv_4': 0.20,
+                'i_dec2': 0.05,
+                'i_dec1': 0.05
+            }
+
+        self.feature_weights = feature_weights
+
+    def first_order_variation(self, feat):
+        """
+        feat: [B, C, H, W]
+
+        compute:
+        f(i+1) - f(i)
+        """
+
+        return (
+            feat[:, 1:, :, :]
+            - feat[:, :-1, :, :]
+        )
+
+    def compute_loss(self, pred, target):
+
+        return F.l1_loss(
+            pred,
+            target,
+            reduction=self.reduction
+        )
+
+    def forward(self, student_feats, teacher_feats):
+
+        total_loss = 0.
+
+        for k, w in self.feature_weights.items():
+
+            if (
+                k not in student_feats
+                or
+                k not in teacher_feats
+            ):
+                continue
+
+            grad_student = (
+                self.first_order_variation(
+                    student_feats[k]
+                )
+            )
+
+            grad_teacher = (
+                self.first_order_variation(
+                    teacher_feats[k]
+                )
+            )
+
+            layer_loss = self.compute_loss(
+                grad_student,
+                grad_teacher
+            )
+
+            total_loss += (
+                w * layer_loss
+            )
+
+        return (
+            total_loss
+            * self.loss_weight
+        )
+    
+
+_reduction_modes = ['none', 'mean', 'sum']
+class RegionLSGDLoss(nn.Module):
+
+    def __init__(
+        self,
+        loss_weight=1.0,
+        reduction='mean',
+        use_dark_weight=True,
+        eps=1e-6,
+    ):
+
+        super(RegionLSGDLoss, self).__init__()
+
+        if reduction not in _reduction_modes:
+            raise ValueError(
+                f'Unsupported reduction mode: '
+                f'{reduction}. '
+                f'Supported ones are: '
+                f'{_reduction_modes}'
+            )
+
+        self.loss_weight = loss_weight
+        self.reduction = reduction
+        self.use_dark_weight = use_dark_weight
+        self.eps = eps
+
+    def compute_spatial_gradient(self, img):
+        """
+        Compute spatial first-order variation
+
+        img:
+            [B,C,H,W]
+
+        return:
+            grad_x, grad_y
+        """
+
+        grad_x = (
+            img[:, :, :, 1:]
+            - img[:, :, :, :-1]
+        )
+
+        grad_y = (
+            img[:, :, 1:, :]
+            - img[:, :, :-1, :]
+        )
+
+        return grad_x, grad_y
+
+    def compute_weight_map(self, gt, is_hvi):
+        """
+        Dark-region weighting.
+
+        For RGB:
+            luminance-based
+
+        For HVI:
+            use I channel directly
+        """
+
+        channels = gt.shape[1]
+
+        # -------------------
+        # RGB
+        # -------------------
+        if channels == 3:
+
+            luminance = (
+                0.299 * gt[:, 0:1]
+                + 0.587 * gt[:, 1:2]
+                + 0.114 * gt[:, 2:3]
+            ) if is_hvi else gt[:, 2:3]
+
+        # -------------------
+        # grayscale
+        # -------------------
+        elif channels == 1:
+
+            luminance = gt
+
+        else:
+            raise ValueError(
+                f'Unsupported channel size: {channels}'
+            )
+
+        # darker -> larger weight
+        weight = 1.0 - luminance
+
+        return weight.clamp(
+            min=self.eps,
+            max=1.0
+        )
+
+    def reduction_fn(self, x):
+
+        if self.reduction == 'mean':
+            return x.mean()
+
+        elif self.reduction == 'sum':
+            return x.sum()
+
+        return x
+
+    def forward(self, pred, gt, is_hvi=False):
+        """
+        pred:
+            output_rgb or output_hvi
+
+        gt:
+            gt_rgb or gt_hvi
+        """
+        pred_gx, pred_gy = (
+            self.compute_spatial_gradient(pred)
+        )
+
+        gt_gx, gt_gy = (
+            self.compute_spatial_gradient(gt)
+        )
+
+        diff_x = torch.abs(
+            pred_gx - gt_gx
+        )
+
+        diff_y = torch.abs(
+            pred_gy - gt_gy
+        )
+
+        # -------------------
+        # region weighting
+        # -------------------
+        if self.use_dark_weight:
+
+            weight = self.compute_weight_map(gt, is_hvi=is_hvi)
+
+            weight_x = weight[:, :, :, 1:]
+            weight_y = weight[:, :, 1:, :]
+
+            diff_x = (diff_x * weight_x)
+
+            diff_y = (diff_y * weight_y)
+
+        loss_x = self.reduction_fn(diff_x)
+        loss_y = self.reduction_fn(diff_y)
+
+        loss = (loss_x + loss_y)
+
+        return (loss * self.loss_weight)

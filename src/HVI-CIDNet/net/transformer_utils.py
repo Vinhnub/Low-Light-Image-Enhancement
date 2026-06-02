@@ -29,7 +29,9 @@ class LayerNorm(nn.Module):
             return x
 
 class NormDownsample(nn.Module):
-    def __init__(self,in_ch,out_ch,scale=0.5,use_norm=False):
+    def __init__(self,in_ch,out_ch,
+                 scale=0.5,
+                 use_norm=False):
         super(NormDownsample, self).__init__()
         self.use_norm=use_norm
         if self.use_norm:
@@ -59,7 +61,9 @@ class NormUpsample(nn.Module):
             nn.Conv2d(in_ch,out_ch,kernel_size=3,stride=1, padding=1, bias=False),
             #SeparableConv(in_ch, out_ch),
             nn.UpsamplingBilinear2d(scale_factor=scale))
-        self.up = nn.Conv2d(out_ch*2,out_ch,kernel_size=1,stride=1, padding=0, bias=False)
+        self.up = nn.Conv2d(out_ch*2,out_ch,kernel_size=1,
+                            stride=1, padding=0, 
+                            bias=False)
             
     def forward(self, x,y):
         x = self.up_scale(x)

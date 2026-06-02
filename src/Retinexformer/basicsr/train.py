@@ -173,7 +173,7 @@ def main():
         device_id = torch.cuda.current_device()
         resume_state = torch.load(
             opt['path']['resume_state'],
-            map_location=lambda storage, loc: storage.cuda(device_id))
+            map_location=lambda storage, loc: storage.cuda(device_id), weights_only=False)
     else:
         resume_state = None
 
@@ -328,13 +328,18 @@ def main():
                                                   opt['val']['save_img'], rgb2bgr, use_image)
                 # log cur metric to csv file
                 logger_metric = get_root_logger(logger_name='metric')
-                metric_str = f'{current_iter},{current_metric}'
+                metric_str = f'{current_iter}'
+
+                for k in opt['val']['metrics'].keys():
+                    metric_str += f',{current_metric[k]}'
+
                 logger_metric.info(metric_str)
 
                 # log best metric
-                if best_metric['psnr'] < current_metric:
-                    best_metric['psnr'] = current_metric
-                    # save best model
+                if best_metric['psnr'] < current_metric['psnr']:
+                    for k in current_metric.keys():
+                        best_metric[k] = current_metric[k]
+
                     best_metric['iter'] = current_iter
                     model.save_best(best_metric)
                 if tb_logger:

@@ -120,3 +120,54 @@ class RGB_HVI(nn.Module):
         if self.gated2:
             rgb = rgb * self.alpha
         return rgb
+
+
+    def RGB2YCrCb(self, img):
+        """
+        RGB -> YCrCb
+        img: [B,3,H,W], range [0,1]
+        output: [B,3,H,W]
+            Y  : luminance
+            Cr : red-difference chroma
+            Cb : blue-difference chroma
+        """
+        eps = 1e-8
+
+        r = img[:, 0:1]
+        g = img[:, 1:2]
+        b = img[:, 2:3]
+
+        # ITU-R BT.601
+        Y = 0.299 * r + 0.587 * g + 0.114 * b
+
+        Cr = (r - Y) * 0.713 + 0.5
+        Cb = (b - Y) * 0.564 + 0.5
+
+        Y = torch.clamp(Y, 0.0, 1.0)
+        Cr = torch.clamp(Cr, 0.0, 1.0)
+        Cb = torch.clamp(Cb, 0.0, 1.0)
+
+        ycrcb = torch.cat([Y, Cr, Cb], dim=1)
+
+        return ycrcb
+    
+    def YCrCb2RGB(self, img):
+        """
+        YCrCb -> RGB
+        img: [B,3,H,W], range [0,1]
+        output: RGB [B,3,H,W]
+        """
+        Y = img[:, 0:1]
+        Cr = img[:, 1:2] - 0.5
+        Cb = img[:, 2:3] - 0.5
+
+        # inverse transform
+        r = Y + 1.403 * Cr
+        g = Y - 0.714 * Cr - 0.344 * Cb
+        b = Y + 1.773 * Cb
+
+        rgb = torch.cat([r, g, b], dim=1)
+
+        rgb = torch.clamp(rgb, 0.0, 1.0)
+
+        return rgb
