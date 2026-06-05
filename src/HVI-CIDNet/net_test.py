@@ -5,7 +5,7 @@ from net.CIDNet import CIDNet
 
 
 model = CIDNet().to('cuda')  
-input = torch.rand(1,3,256,256).to('cuda')  
+input = torch.rand(1,3,8,8).to('cuda')  
 torch.cuda.synchronize()
 model.eval()
 time_start = time.time()

@@ -41,7 +41,7 @@ class LOLDatasetFromFolder(data.Dataset):
         return im1, im2, file1, file2
 
     def __len__(self):
-        return 2
+        return 485
 
     
 class LOLv2DatasetFromFolder(data.Dataset):
