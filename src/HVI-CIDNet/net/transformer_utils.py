@@ -38,8 +38,8 @@ class NormDownsample(nn.Module):
             self.norm=LayerNorm(out_ch)
         self.prelu = nn.PReLU()
         self.down = nn.Sequential(
-            nn.Conv2d(in_ch, out_ch,kernel_size=3,stride=1, padding=1, bias=False),
-            #SeparableConv(in_ch, out_ch),
+            #nn.Conv2d(in_ch, out_ch,kernel_size=3,stride=1, padding=1, bias=False),
+            SeparableConv(in_ch, out_ch),
             nn.UpsamplingBilinear2d(scale_factor=scale))
     def forward(self, x):
         x = self.down(x)
@@ -58,8 +58,8 @@ class NormUpsample(nn.Module):
             self.norm=LayerNorm(out_ch)
         self.prelu = nn.PReLU()
         self.up_scale = nn.Sequential(
-            nn.Conv2d(in_ch,out_ch,kernel_size=3,stride=1, padding=1, bias=False),
-            #SeparableConv(in_ch, out_ch),
+            #nn.Conv2d(in_ch,out_ch,kernel_size=3,stride=1, padding=1, bias=False),
+            SeparableConv(in_ch, out_ch),
             nn.UpsamplingBilinear2d(scale_factor=scale))
         self.up = nn.Conv2d(out_ch*2,out_ch,kernel_size=1,
                             stride=1, padding=0, 
