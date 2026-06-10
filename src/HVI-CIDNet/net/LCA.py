@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from einops import rearrange
 from net.transformer_utils import *
+from net.SS2D import SS2D
 
 # Cross Attention Block
 class CAB(nn.Module):
@@ -40,6 +41,85 @@ class CAB(nn.Module):
         out = self.project_out(out)
         return out
     
+class VMB(nn.Module):
+    def __init__(
+        self,
+        dim,
+        bias=False,
+        d_state=8,
+        expand=1
+    ):
+        super(VMB, self).__init__()
+
+        self.q = nn.Sequential(
+            nn.Conv2d(dim, dim, 1, bias=bias),
+
+            nn.Conv2d(
+                dim,
+                dim,
+                kernel_size=3,
+                padding=1,
+                groups=dim,
+                bias=bias
+            ),
+
+            nn.GELU()
+        )
+
+        self.y_proj = nn.Sequential(
+            nn.Conv2d(dim, dim, 1, bias=bias),
+
+            nn.Conv2d(
+                dim,
+                dim,
+                kernel_size=3,
+                padding=1,
+                groups=dim,
+                bias=bias
+            ),
+
+            nn.GELU()
+        )
+
+        # your SS2D
+        self.ss2d = SS2D(
+            d_model=dim,
+            d_state=d_state,
+            expand=expand,
+            dropout=0.
+        )
+
+        self.project_out = nn.Conv2d(
+            dim,
+            dim,
+            kernel_size=1,
+            bias=bias
+        )
+
+    def forward(self, x, y):
+
+        q = self.q(x)
+
+        y_feat = self.y_proj(y)
+
+        # BCHW -> BHWC
+        y_feat = y_feat.permute(0, 2, 3, 1)
+
+        # VMamba scan
+        context = self.ss2d(y_feat)
+
+        # BHWC -> BCHW
+        context = context.permute(0, 3, 1, 2)
+
+        # Cross interaction
+        gate = torch.sigmoid(q)
+
+        out = gate * context + x
+
+        out = self.project_out(out)
+
+        return out
+    
 
 # Intensity Enhancement Layer
 class IEL(nn.Module):
@@ -73,8 +153,9 @@ class HV_LCA(nn.Module):
         super(HV_LCA, self).__init__()
         self.gdfn = IEL(dim) # IEL and CDL have same structure
         self.norm = LayerNorm(dim)
-        self.ffn = CAB(dim, num_heads, bias)
-        
+        #self.ffn = CAB(dim, num_heads, bias)
+        self.ffn = VMB(dim, bias=bias, d_state=8, expand=1)
+
     def forward(self, x, y):
         x = x + self.ffn(self.norm(x),self.norm(y))
         x = self.gdfn(self.norm(x))
@@ -85,7 +166,8 @@ class I_LCA(nn.Module):
         super(I_LCA, self).__init__()
         self.norm = LayerNorm(dim)
         self.gdfn = IEL(dim)
-        self.ffn = CAB(dim, num_heads, bias=bias)
+        #self.ffn = CAB(dim, num_heads, bias=bias)
+        self.ffn = VMB(dim, bias=bias, d_state=8, expand=1)
         
     def forward(self, x, y):
         x = x + self.ffn(self.norm(x),self.norm(y))

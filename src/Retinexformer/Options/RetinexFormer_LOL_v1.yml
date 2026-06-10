@@ -33,8 +33,8 @@ datasets:
     ### ------- Training on single fixed-patch size 128x128---------
     mini_batch_sizes: [8]   
     iters: [300000]
-    gt_size: 128   
-    gt_sizes: [128]
+    gt_size: 64   
+    gt_sizes: [64]
     ### ------------------------------------------------------------
 
     dataset_enlarge_ratio: 1
@@ -92,9 +92,10 @@ train:
   
   # losses
   pixel_opt:
-    type: L1Loss
-    loss_weight: 1
-    reduction: mean
+    type: L1EdgeRegionLoss
+    l1_weight: 1.0
+    edge_weight: 10.0
+    region_weight: 1.0
 
 # validation settings
 val:
@@ -110,7 +111,8 @@ val:
       type: calculate_psnr
       crop_border: 0
       test_y_channel: false
-    ssim:
+
+    ssim: # metric name, can be arbitrary
       type: calculate_ssim
       crop_border: 0
       test_y_channel: false
