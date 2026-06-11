@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 from einops import rearrange
 from net.transformer_utils import *
-from net.SS2D import SS2D
 
 # Cross Attention Block
 class CAB(nn.Module):
@@ -153,8 +152,8 @@ class HV_LCA(nn.Module):
         super(HV_LCA, self).__init__()
         self.gdfn = IEL(dim) # IEL and CDL have same structure
         self.norm = LayerNorm(dim)
-        #self.ffn = CAB(dim, num_heads, bias)
-        self.ffn = VMB(dim, bias=bias, d_state=8, expand=1)
+        self.ffn = CAB(dim, num_heads, bias)
+        #self.ffn = VMB(dim, bias=bias, d_state=8, expand=1)
 
     def forward(self, x, y):
         x = x + self.ffn(self.norm(x),self.norm(y))
@@ -166,8 +165,8 @@ class I_LCA(nn.Module):
         super(I_LCA, self).__init__()
         self.norm = LayerNorm(dim)
         self.gdfn = IEL(dim)
-        #self.ffn = CAB(dim, num_heads, bias=bias)
-        self.ffn = VMB(dim, bias=bias, d_state=8, expand=1)
+        self.ffn = CAB(dim, num_heads, bias=bias)
+        #self.ffn = VMB(dim, bias=bias, d_state=8, expand=1)
         
     def forward(self, x, y):
         x = x + self.ffn(self.norm(x),self.norm(y))
