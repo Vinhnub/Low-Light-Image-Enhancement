@@ -326,7 +326,7 @@ class Attention(nn.Module):
         xz_vis = self.in_proj_vis(x_vis)
         x_vis, z_vis = xz_vis.chunk(2, dim=-1)
 
-        xz_inf = self.in_proj_inf(x_inf)
+        xz_inf = self.in_proj_vis(x_inf)
         x_inf, z_inf = xz_inf.chunk(2, dim=-1)
 
         x_vis = x_vis.permute(0, 3, 1, 2).contiguous()
@@ -380,7 +380,7 @@ class MMMamba(nn.Module):
         self.norm_ms_2 = LayerNorm(dim, LayerNorm_type)
 
 
-        self.attn = Attention(dim,window_size=2)
+        self.attn = Attention(dim,window_size=4)
         self.ffn =FeedForward(dim,ffn_expansion_factor=2)
     def forward(self,x):
         ms,pan = x
