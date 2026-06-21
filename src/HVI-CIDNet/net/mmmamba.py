@@ -351,7 +351,7 @@ class Attention(nn.Module):
         out_vis = rearrange(out_vis, 'b h w c -> b c h w')
         out_inf = rearrange(out_inf, 'b h w c -> b c h w')
         return out_vis, out_inf
-
+    
 class FeedForward(nn.Module):
     def __init__(self, dim, ffn_expansion_factor, bias=False):
         super(FeedForward, self).__init__()
