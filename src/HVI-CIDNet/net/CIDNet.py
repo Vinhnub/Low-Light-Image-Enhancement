@@ -68,7 +68,7 @@ class CIDNet(nn.Module, PyTorchModelHubMixin):
         
         self.trans = RGB_HVI()
         
-    def forward(self, x):
+    def forward(self, x, return_feats=False):
         dtypes = x.dtype
         hvi = self.trans.HVIT(x)
         i = hvi[:,2,:,:].unsqueeze(1).to(dtypes)
