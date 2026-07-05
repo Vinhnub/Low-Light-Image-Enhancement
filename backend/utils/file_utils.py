@@ -1,6 +1,7 @@
 import aiofiles
 from fastapi import UploadFile
 import os
+import base64
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -20,3 +21,13 @@ def get_output_url(filename: str) -> str:
     Construct the URL to access the processed output file.
     """
     return f"http://{SERVER_IP}:{PORT_TCP}/outputs/{filename}"
+
+def get_image_base64(filepath: str) -> str:
+    """
+    Reads an image from disk and converts it to a Base64 string.
+    """
+    with open(filepath, "rb") as image_file:
+        encoded_string = base64.b64encode(image_file.read()).decode("utf-8")
+        # Format it so frontend can use it directly in <img src="..." />
+        return f"data:image/png;base64,{encoded_string}"
+

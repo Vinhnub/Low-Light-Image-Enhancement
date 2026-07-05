@@ -7,10 +7,10 @@ router = APIRouter(
     tags=["Image Enhancement"]
 )
 
-@router.post("/")
+@router.post("/upload")
 async def enhance_image(
     file: UploadFile = File(...),
-    model_name: str = Form(default="Retinexformer")
+    model_name: str = Form(default="cidnet")
 ):
     """
     Endpoint to upload a low-light image and select an enhancement model.
@@ -23,4 +23,5 @@ async def enhance_image(
         result = await image_controller.process_image(file, model_name)
         return JSONResponse(status_code=200, content={"status": "success", "data": result})
     except Exception as e:
+        print(e)
         raise HTTPException(status_code=500, detail=str(e))

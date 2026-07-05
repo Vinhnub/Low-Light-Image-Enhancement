@@ -28,11 +28,12 @@ async def process_image(file: UploadFile, model_name: str) -> dict:
     # Call the service layer to do the actual ML inference
     enhancement_service.enhance(input_path, output_path, model_name)
 
-    # Return the URL for the client to access the enhanced image
-    output_url = get_output_url(output_filename)
+    # Convert the processed output file directly to Base64
+    from backend.utils.file_utils import get_image_base64
+    base64_img = get_image_base64(output_path)
     
     return {
         "original_image": file.filename,
         "model_used": model_name,
-        "enhanced_image_url": output_url
+        "enhanced_image_base64": base64_img
     }
