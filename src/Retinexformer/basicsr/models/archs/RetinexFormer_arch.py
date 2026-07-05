@@ -237,8 +237,8 @@ class Denoiser(nn.Module):
         self.level = level
 
         # Input projection
-        #self.embedding = nn.Conv2d(in_dim, self.dim, 3, 1, 1, bias=False)
-        self.embedding = SeparableConv(in_dim, self.dim)
+        self.embedding = nn.Conv2d(in_dim, self.dim, 3, 1, 1, bias=False)
+        #self.embedding = SeparableConv(in_dim, self.dim)
 
         # Encoder
         self.encoder_layers = nn.ModuleList([])
@@ -247,10 +247,10 @@ class Denoiser(nn.Module):
             self.encoder_layers.append(nn.ModuleList([
                 IGAB(
                     dim=dim_level, num_blocks=num_blocks[i], dim_head=dim, heads=dim_level // dim),
-                #nn.Conv2d(dim_level, dim_level * 2, 4, 2, 1, bias=False),
-                #nn.Conv2d(dim_level, dim_level * 2, 4, 2, 1, bias=False)
-                SeparableConv(dim_level, dim_level * 2, kernel_size=4, padding=1, stride=2),
-                SeparableConv(dim_level, dim_level * 2, kernel_size=4, padding=1, stride=2)
+                nn.Conv2d(dim_level, dim_level * 2, 4, 2, 1, bias=False),
+                nn.Conv2d(dim_level, dim_level * 2, 4, 2, 1, bias=False)
+                #SeparableConv(dim_level, dim_level * 2, kernel_size=4, padding=1, stride=2),
+                #SeparableConv(dim_level, dim_level * 2, kernel_size=4, padding=1, stride=2)
             ]))
             dim_level *= 2
 
@@ -272,8 +272,8 @@ class Denoiser(nn.Module):
             dim_level //= 2
 
         # Output projection
-        #self.mapping = nn.Conv2d(self.dim, out_dim, 3, 1, 1, bias=False)
-        self.mapping = SeparableConv(self.dim, out_dim)
+        self.mapping = nn.Conv2d(self.dim, out_dim, 3, 1, 1, bias=False)
+        #self.mapping = SeparableConv(self.dim, out_dim)
 
         # activation function
         self.lrelu = nn.LeakyReLU(negative_slope=0.1, inplace=True)

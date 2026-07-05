@@ -69,9 +69,8 @@ def train(epoch):
             input_low = im1
             input_gt = im2
 
-        output_rgb, feat_student = model(
-            input_low,
-            return_feats=True
+        output_rgb = model(
+            input_low
         )
             
         # with torch.no_grad():
@@ -85,7 +84,7 @@ def train(epoch):
         gt_hvi = model.HVIT(gt_rgb)
         loss_hvi = L1_loss(output_hvi, gt_hvi) + D_loss(output_hvi, gt_hvi) + E_loss(output_hvi, gt_hvi) + opt.P_weight * P_loss(output_hvi, gt_hvi)[0] + LSGD_loss(output_hvi, gt_hvi, is_hvi=True)
         loss_rgb = L1_loss(output_rgb, gt_rgb) + D_loss(output_rgb, gt_rgb) + E_loss(output_rgb, gt_rgb) + opt.P_weight * P_loss(output_rgb, gt_rgb)[0] + LSGD_loss(output_rgb, gt_rgb)
-        loss = loss_rgb + opt.HVI_weight * loss_hvi #+ LSGD_loss(feat_student, feat_teacher)
+        loss = loss_rgb + opt.HVI_weight * loss_hvi
         iter += 1
         
         if opt.grad_clip:
@@ -308,5 +307,14 @@ if __name__ == '__main__':
             print(ssim)
             print(lpips)
             with open(f"./results/training/metrics{now}.md", "a") as f:
-                f.write(f"| {epoch} | { avg_psnr:.4f} | {avg_ssim:.4f} | {avg_lpips:.4f} |\n")  
+                f.write(f"| {epoch} | { avg_psnr:.4f} | {avg_ssim:.4f} | {avg_lpips:.4f} |\n") 
+
+            # --- Eval with GT Mean
+            avg_psnr, avg_ssim, avg_lpips = metrics(im_dir, label_dir, use_GT_mean=True)
+            print("===> Avg.PSNR (GT): {:.4f} dB ".format(avg_psnr))
+            print("===> Avg.SSIM (GT): {:.4f} ".format(avg_ssim))
+            print("===> Avg.LPIPS (GT): {:.4f} ".format(avg_lpips))
+            with open(f"./results/training/metrics{now}.md", "a") as f:
+                f.write(f"| {epoch} | { avg_psnr:.4f} | {avg_ssim:.4f} | {avg_lpips:.4f} | GT Mean |\n") 
+
         torch.cuda.empty_cache()
