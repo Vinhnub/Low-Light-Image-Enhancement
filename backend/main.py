@@ -8,13 +8,20 @@ import uvicorn
 from backend.routes import image_router
 
 load_dotenv()
-SERVER_IP = os.getenv("SERVER_IP", "127.0.0.1")
-PORT_TCP = os.getenv("PORT_TCP", "8000")
+SERVER_IP = os.getenv("SERVER_IP")
+PORT_IP = os.getenv("PORT_IP")
 
 app = FastAPI(title="Low-Light Image Enhancement API", version="1.0.0")
 
 # Setup CORS
-origins = ["*"]
+origins = [
+    "http://26.212.75.55:5173",
+    "http://26.253.176.29:5173",
+    "http://192.168.1.5:5173",
+    "http://10.12.96.95:5173",
+    "http://26.198.149.7:5173",
+    # "https://your-frontend-domain.com",  # add if deployed later
+]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -35,4 +42,4 @@ def read_root():
     return {"message": "Welcome to Low-Light Image Enhancement API"}
 
 if __name__ == "__main__":
-    uvicorn.run("backend.main:app", host=SERVER_IP, port=int(PORT_TCP), reload=True)
+    uvicorn.run("backend.main:app", host=SERVER_IP, port=int(PORT_IP), reload=True, log_config="backend/logging.yaml", log_level="debug")

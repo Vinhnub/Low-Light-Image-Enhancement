@@ -17,13 +17,8 @@ def enhance(input_path: str, output_path: str, model_name: str):
     # to the output path. You should replace this with actual calls 
     # to your model's test/inference functions.
     # -------------------------------------------------------------
-    
-    if model_name.lower() == "esdnet":
-        # e.g., src.ESDNet.inference(input_path, output_path)
-        pass
-    elif model_name.lower() == "fadformer":
-        pass
-    elif model_name.lower() == "hvi-cidnet":
+
+    if model_name.lower() == "cidnet":
         pass
     elif model_name.lower() == "retinexformer":
         pass
