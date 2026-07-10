@@ -2,19 +2,24 @@
 
 import { useState } from "react"
 
-export default function ImageCompare() {
+interface ImageCompareProps {
+  enhancedImage: string;
+  originImage: any
+}
+
+export default function ImageCompareImageCompare({enhancedImage, originImage}: ImageCompareProps) {
   const [value, setValue] = useState(50)
 
   return (
     <div className="relative w-full max-w-[650px] aspect-[4.5/3] overflow-hidden rounded-2xl">      
-      <img src="/origin.png" className="absolute w-full h-full object-cover"/>
+      <img src={originImage} className="absolute w-full h-full object-cover"/>
 
       <div
         className="absolute inset-0 overflow-hidden bg-white"
         style={{ clipPath: `inset(0 ${100 - value}% 0 0)`}}
       >
         <img
-          src="/enhance.png"
+          src={enhancedImage}
           className="absolute insert-0 h-full object-cover"
         />
       </div>

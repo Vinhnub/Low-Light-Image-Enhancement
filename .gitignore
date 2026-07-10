@@ -279,3 +279,5 @@ Thumbs.db
 # Misc
 *.swp
 *.swo
+src/HVI-CIDNet/debug
+src/HVI-CIDNet/train_stage_1
