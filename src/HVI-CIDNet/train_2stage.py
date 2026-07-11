@@ -78,15 +78,29 @@ def train(epoch):
         # Calculate Stage 1 Losses (RGB + HVI)
         output_hvi_s1 = model.HVIT(output_rgb_s1)
         gt_hvi_s1 = model.HVIT(gt_s1)
-        loss_hvi_s1 = s1_L1_loss(output_hvi_s1, gt_hvi_s1) + s1_D_loss(output_hvi_s1, gt_hvi_s1) + s1_E_loss(output_hvi_s1, gt_hvi_s1) + opt.s1_P_weight * s1_P_loss(output_hvi_s1, gt_hvi_s1)[0] + s1_LSGD_loss(output_hvi_s1, gt_hvi_s1, is_hvi=True)
-        loss_rgb_s1 = s1_L1_loss(output_rgb_s1, gt_s1) + s1_D_loss(output_rgb_s1, gt_s1) + s1_E_loss(output_rgb_s1, gt_s1) + opt.s1_P_weight * s1_P_loss(output_rgb_s1, gt_s1)[0] + s1_LSGD_loss(output_rgb_s1, gt_s1)
+        
+        loss_hvi_s1 = s1_L1_loss(output_hvi_s1, gt_hvi_s1) + s1_D_loss(output_hvi_s1, gt_hvi_s1) + s1_E_loss(output_hvi_s1, gt_hvi_s1) + s1_LSGD_loss(output_hvi_s1, gt_hvi_s1, is_hvi=True)
+        if opt.s1_P_weight > 0:
+            loss_hvi_s1 += opt.s1_P_weight * s1_P_loss(output_hvi_s1, gt_hvi_s1)[0]
+            
+        loss_rgb_s1 = s1_L1_loss(output_rgb_s1, gt_s1) + s1_D_loss(output_rgb_s1, gt_s1) + s1_E_loss(output_rgb_s1, gt_s1) + s1_LSGD_loss(output_rgb_s1, gt_s1)
+        if opt.s1_P_weight > 0:
+            loss_rgb_s1 += opt.s1_P_weight * s1_P_loss(output_rgb_s1, gt_s1)[0]
+            
         loss_s1 = loss_rgb_s1 + opt.s1_HVI_weight * loss_hvi_s1
 
         # Calculate Stage 2 Losses (RGB + HVI)
         output_hvi_s2 = model.HVIT(output_rgb_s2)
         gt_hvi_s2 = model.HVIT(input_gt)
-        loss_hvi_s2 = s2_L1_loss(output_hvi_s2, gt_hvi_s2) + s2_D_loss(output_hvi_s2, gt_hvi_s2) + s2_E_loss(output_hvi_s2, gt_hvi_s2) + opt.s2_P_weight * s2_P_loss(output_hvi_s2, gt_hvi_s2)[0] + s2_LSGD_loss(output_hvi_s2, gt_hvi_s2, is_hvi=True)
-        loss_rgb_s2 = s2_L1_loss(output_rgb_s2, input_gt) + s2_D_loss(output_rgb_s2, input_gt) + s2_E_loss(output_rgb_s2, input_gt) + opt.s2_P_weight * s2_P_loss(output_rgb_s2, input_gt)[0] + s2_LSGD_loss(output_rgb_s2, input_gt)
+        
+        loss_hvi_s2 = s2_L1_loss(output_hvi_s2, gt_hvi_s2) + s2_D_loss(output_hvi_s2, gt_hvi_s2) + s2_E_loss(output_hvi_s2, gt_hvi_s2) + s2_LSGD_loss(output_hvi_s2, gt_hvi_s2, is_hvi=True)
+        if opt.s2_P_weight > 0:
+            loss_hvi_s2 += opt.s2_P_weight * s2_P_loss(output_hvi_s2, gt_hvi_s2)[0]
+            
+        loss_rgb_s2 = s2_L1_loss(output_rgb_s2, input_gt) + s2_D_loss(output_rgb_s2, input_gt) + s2_E_loss(output_rgb_s2, input_gt) + s2_LSGD_loss(output_rgb_s2, input_gt)
+        if opt.s2_P_weight > 0:
+            loss_rgb_s2 += opt.s2_P_weight * s2_P_loss(output_rgb_s2, input_gt)[0]
+            
         loss_s2 = loss_rgb_s2 + opt.s2_HVI_weight * loss_hvi_s2
 
         # Combined Loss

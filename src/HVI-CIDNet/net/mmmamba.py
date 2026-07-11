@@ -383,12 +383,29 @@ class MMMamba(nn.Module):
         self.attn = Attention(dim,window_size=2)
         self.ffn =FeedForward(dim,ffn_expansion_factor=2)
     def forward(self,x):
-        ms,pan = x
+        ms, pan = x
+        
+        # Pad image to be divisible by window_size
+        _, _, H, W = ms.shape
+        w_sz = self.attn.window_size
+        pad_h = (w_sz - H % w_sz) % w_sz
+        pad_w = (w_sz - W % w_sz) % w_sz
+        
+        if pad_h > 0 or pad_w > 0:
+            ms = F.pad(ms, (0, pad_w, 0, pad_h), mode='replicate')
+            pan = F.pad(pan, (0, pad_w, 0, pad_h), mode='replicate')
+            
         ms_f,pan_f = self.attn(self.norm_ms(ms),self.norm_pan(pan))
         ms = ms_f+ms
         pan = pan_f+pan
         ms = self.ffn(self.norm_ms_2(ms))+ms
         pan = self.ffn(self.norm_pan_2(pan))+pan
+        
+        # Crop back to original size
+        if pad_h > 0 or pad_w > 0:
+            ms = ms[:, :, :H, :W]
+            pan = pan[:, :, :H, :W]
+            
         return [ms,pan]
 class CrossAttention(nn.Module):
     def __init__(self, dim, num_heads, bias):
