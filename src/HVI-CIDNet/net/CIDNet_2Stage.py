@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from net.CIDNet_Mamba import CIDNet as CIDNet_Mamba
+from net.CIDNet_Mamba_separable_learning import CIDNet as CIDNet_Mamba
 from net.CIDNet_base import CIDNet as CIDNet_Base
 from huggingface_hub import PyTorchModelHubMixin
 

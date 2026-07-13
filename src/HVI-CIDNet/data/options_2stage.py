@@ -34,7 +34,9 @@ def option():
     parser.add_argument('--data_train_lol_v1'       , type=str, default='E:/Pythonfile/Low-Light-Image-Enhancement/mydata/dataset/dataset/LOLv1/train')
     parser.add_argument('--data_train_gt_s1_lol_v1' , type=str, default='E:/Pythonfile/Low-Light-Image-Enhancement/mydata/dataset/dataset/LOLv1/train/stage1_gt')
     parser.add_argument('--data_train_lolv2_real'   , type=str, default='./datasets/LOLv2/Real_captured/Train')
+    parser.add_argument('--data_train_gt_s1_lolv2_real', type=str, default='./datasets/LOLv2/Real_captured/Train/stage1_gt')
     parser.add_argument('--data_train_lolv2_syn'    , type=str, default='./datasets/LOLv2/Synthetic/Train')
+    parser.add_argument('--data_train_gt_s1_lolv2_syn', type=str, default='./datasets/LOLv2/Synthetic/Train/stage1_gt')
     parser.add_argument('--data_train_SID'          , type=str, default='./datasets/Sony_total_dark/train')
     parser.add_argument('--data_train_SICE'         , type=str, default='./datasets/SICE/Dataset/train')
     parser.add_argument('--data_train_fivek'        , type=str, default='./datasets/FiveK/train')
@@ -58,6 +60,16 @@ def option():
     parser.add_argument('--data_valgt_SICE_mix'     , type=str, default='./datasets/SICE/Dataset/eval/target/')
     parser.add_argument('--data_valgt_SICE_grad'    , type=str, default='./datasets/SICE/Dataset/eval/target/')
     parser.add_argument('--data_valgt_fivek'        , type=str, default='./datasets/FiveK/test/target/')
+
+    # validation groundtruth for Stage 1
+    parser.add_argument('--data_valgt_s1_lol_blur'  , type=str, default='./datasets/LOL_blur/eval/high_sharp_scaled/') 
+    parser.add_argument('--data_valgt_s1_lol_v1'    , type=str, default='E:/Pythonfile/Low-Light-Image-Enhancement/mydata/dataset/dataset/LOLv1/test/stage1_gt/')
+    parser.add_argument('--data_valgt_s1_lolv2_real', type=str, default='./datasets/LOLv2/Real_captured/Test/Normal/') 
+    parser.add_argument('--data_valgt_s1_lolv2_syn' , type=str, default='./datasets/LOLv2/Synthetic/Test/Normal/') 
+    parser.add_argument('--data_valgt_s1_SID'       , type=str, default='./datasets/Sony_total_dark/eval/long/') 
+    parser.add_argument('--data_valgt_s1_SICE_mix'  , type=str, default='./datasets/SICE/Dataset/eval/target/') 
+    parser.add_argument('--data_valgt_s1_SICE_grad' , type=str, default='./datasets/SICE/Dataset/eval/target/') 
+    parser.add_argument('--data_valgt_s1_fivek'     , type=str, default='./datasets/FiveK/test/target/') 
 
     parser.add_argument('--val_folder', default='./results/', help='Location to save validation datasets')
 

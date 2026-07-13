@@ -196,6 +196,51 @@ def load_datasets():
     testing_data_loader = DataLoader(dataset=test_set, num_workers=opt.threads, batch_size=1, shuffle=False)
     return training_data_loader, testing_data_loader
 
+def eval_2stage(model, testing_data_loader, model_path, output_folder_s1, output_folder_s2, norm_size=True, LOL=False, v2=False, unpaired=False, alpha=1.0, gamma=1.0):
+    torch.set_grad_enabled(False)
+    model.load_state_dict(torch.load(model_path, map_location=lambda storage, loc: storage))
+    print('Pre-trained model is loaded for evaluation.')
+    model.eval()
+    if LOL:
+        model.trans.gated = True
+    elif v2:
+        model.trans.gated2 = True
+        model.trans.alpha = alpha
+    elif unpaired:
+        model.trans.gated2 = True
+        model.trans.alpha = alpha
+        
+    if not os.path.exists(output_folder_s1): os.makedirs(output_folder_s1)
+    if not os.path.exists(output_folder_s2): os.makedirs(output_folder_s2)
+        
+    for batch in tqdm(testing_data_loader, desc="Evaluating"):
+        if norm_size:
+            input, name = batch[0], batch[1]
+        else:
+            input, name, h, w = batch[0], batch[1], batch[2], batch[3]
+        
+        input = input.cuda()
+        out_s1, out_s2 = model(input**gamma, return_all=True) 
+        
+        out_s1 = torch.clamp(out_s1.cuda(), 0, 1)
+        out_s2 = torch.clamp(out_s2.cuda(), 0, 1)
+        
+        if not norm_size:
+            out_s1 = out_s1[:, :, :h, :w]
+            out_s2 = out_s2[:, :, :h, :w]
+        
+        img_s1 = transforms.ToPILImage()(out_s1.squeeze(0))
+        img_s2 = transforms.ToPILImage()(out_s2.squeeze(0))
+        
+        img_s1.save(os.path.join(output_folder_s1, name[0]))
+        img_s2.save(os.path.join(output_folder_s2, name[0]))
+        
+    if LOL:
+        model.trans.gated = False
+    elif v2:
+        model.trans.gated2 = False
+    torch.set_grad_enabled(True)
+
 def build_model():
     print('===> Building model ')
     model = CIDNet().cuda()
@@ -296,61 +341,85 @@ if __name__ == '__main__':
             if opt.dataset == 'lol_v1':
                 output_folder = 'LOLv1/'
                 label_dir = opt.data_valgt_lol_v1
+                label_dir_s1 = opt.data_valgt_s1_lol_v1
             if opt.dataset == 'lolv2_real':
                 output_folder = 'LOLv2_real/'
                 label_dir = opt.data_valgt_lolv2_real
+                label_dir_s1 = opt.data_valgt_s1_lolv2_real
             if opt.dataset == 'lolv2_syn':
                 output_folder = 'LOLv2_syn/'
                 label_dir = opt.data_valgt_lolv2_syn
+                label_dir_s1 = opt.data_valgt_s1_lolv2_syn
             
             # LOL-blur dataset with low_blur and high_sharp_scaled
             if opt.dataset == 'lol_blur':
                 output_folder = 'LOL_blur/'
                 label_dir = opt.data_valgt_lol_blur
+                label_dir_s1 = opt.data_valgt_s1_lol_blur
                 
             if opt.dataset == 'SID':
                 output_folder = 'SID/'
                 label_dir = opt.data_valgt_SID
+                label_dir_s1 = opt.data_valgt_s1_SID
                 npy = True
             if opt.dataset == 'SICE_mix':
                 output_folder = 'SICE_mix/'
                 label_dir = opt.data_valgt_SICE_mix
+                label_dir_s1 = opt.data_valgt_s1_SICE_mix
                 norm_size = False
             if opt.dataset == 'SICE_grad':
                 output_folder = 'SICE_grad/'
                 label_dir = opt.data_valgt_SICE_grad
+                label_dir_s1 = opt.data_valgt_s1_SICE_grad
                 norm_size = False
                 
             if opt.dataset == 'fivek':
                 output_folder = 'fivek/'
                 label_dir = opt.data_valgt_fivek
+                label_dir_s1 = opt.data_valgt_s1_fivek
                 norm_size = False
 
-            im_dir = opt.val_folder + output_folder + '*.png'
+            folder_s1 = opt.val_folder + output_folder + 's1/'
+            folder_s2 = opt.val_folder + output_folder + 's2/'
+            im_dir_s1 = folder_s1 + '*.png'
+            im_dir_s2 = folder_s2 + '*.png'
+            
             is_lol_v1 = (opt.dataset == 'lol_v1')
             is_lolv2_real = (opt.dataset == 'lolv2_real')
-            eval(model, testing_data_loader, model_out_path, opt.val_folder+output_folder, 
+            eval_2stage(model, testing_data_loader, model_out_path, folder_s1, folder_s2, 
                  norm_size=norm_size, LOL=is_lol_v1, v2=is_lolv2_real, alpha=0.8)
             
-            avg_psnr, avg_ssim, avg_lpips = metrics(im_dir, label_dir, use_GT_mean=False)
-            print("===> Avg.PSNR: {:.4f} dB ".format(avg_psnr))
-            print("===> Avg.SSIM: {:.4f} ".format(avg_ssim))
-            print("===> Avg.LPIPS: {:.4f} ".format(avg_lpips))
+            print("--- Stage 1 Evaluation ---")
+            avg_psnr_s1, avg_ssim_s1, avg_lpips_s1 = metrics(im_dir_s1, label_dir_s1, use_GT_mean=False)
+            print(f"===> S1 Avg.PSNR: {avg_psnr_s1:.4f} dB, S1 Avg.SSIM: {avg_ssim_s1:.4f}, S1 Avg.LPIPS: {avg_lpips_s1:.4f}")
+
+            print("--- Stage 2 Evaluation ---")
+            avg_psnr, avg_ssim, avg_lpips = metrics(im_dir_s2, label_dir, use_GT_mean=False)
+            print("===> S2 Avg.PSNR: {:.4f} dB ".format(avg_psnr))
+            print("===> S2 Avg.SSIM: {:.4f} ".format(avg_ssim))
+            print("===> S2 Avg.LPIPS: {:.4f} ".format(avg_lpips))
+            
             psnr.append(avg_psnr)
             ssim.append(avg_ssim)
             lpips.append(avg_lpips)
-            print(psnr)
-            print(ssim)
-            print(lpips)
+            # print(psnr)
+            # print(ssim)
+            # print(lpips)
+
             with open(f"./results/training/metrics_2stage_{now}.md", "a") as f:
-                f.write(f"| {epoch} | { avg_psnr:.4f} | {avg_ssim:.4f} | {avg_lpips:.4f} |\n") 
+                f.write(f"| {epoch} | S1: {avg_psnr_s1:.4f} / S2: {avg_psnr:.4f} | S1: {avg_ssim_s1:.4f} / S2: {avg_ssim:.4f} | S1: {avg_lpips_s1:.4f} / S2: {avg_lpips:.4f} |\n") 
 
             # --- Eval with GT Mean
-            avg_psnr, avg_ssim, avg_lpips = metrics(im_dir, label_dir, use_GT_mean=True)
-            print("===> Avg.PSNR (GT): {:.4f} dB ".format(avg_psnr))
-            print("===> Avg.SSIM (GT): {:.4f} ".format(avg_ssim))
-            print("===> Avg.LPIPS (GT): {:.4f} ".format(avg_lpips))
+            print("--- Stage 1 Evaluation (GT Mean) ---")
+            avg_psnr_s1_gt, avg_ssim_s1_gt, avg_lpips_s1_gt = metrics(im_dir_s1, label_dir_s1, use_GT_mean=True)
+            print(f"===> S1 Avg.PSNR (GT): {avg_psnr_s1_gt:.4f} dB, S1 Avg.SSIM (GT): {avg_ssim_s1_gt:.4f}, S1 Avg.LPIPS (GT): {avg_lpips_s1_gt:.4f}")
+
+            print("--- Stage 2 Evaluation (GT Mean) ---")
+            avg_psnr_gt, avg_ssim_gt, avg_lpips_gt = metrics(im_dir_s2, label_dir, use_GT_mean=True)
+            print("===> S2 Avg.PSNR (GT): {:.4f} dB ".format(avg_psnr_gt))
+            print("===> S2 Avg.SSIM (GT): {:.4f} ".format(avg_ssim_gt))
+            print("===> S2 Avg.LPIPS (GT): {:.4f} ".format(avg_lpips_gt))
             with open(f"./results/training/metrics_2stage_{now}.md", "a") as f:
-                f.write(f"| {epoch} | { avg_psnr:.4f} | {avg_ssim:.4f} | {avg_lpips:.4f} | GT Mean |\n") 
+                f.write(f"| {epoch} | S1: {avg_psnr_s1_gt:.4f} / S2: {avg_psnr_gt:.4f} | S1: {avg_ssim_s1_gt:.4f} / S2: {avg_ssim_gt:.4f} | S1: {avg_lpips_s1_gt:.4f} / S2: {avg_lpips_gt:.4f} | GT Mean |\n") 
 
         torch.cuda.empty_cache()
