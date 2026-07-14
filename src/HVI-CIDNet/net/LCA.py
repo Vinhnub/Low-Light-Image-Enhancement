@@ -119,7 +119,7 @@ class VMB(nn.Module):
 
         return out
     
-
+    
 # Intensity Enhancement Layer
 class IEL(nn.Module):
     def __init__(self, dim, ffn_expansion_factor=2.66, bias=False):

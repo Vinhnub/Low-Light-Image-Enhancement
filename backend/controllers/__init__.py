@@ -1,0 +1,1 @@
+from backend.controllers.image_controller import process_image

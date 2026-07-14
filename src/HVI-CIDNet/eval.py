@@ -91,12 +91,12 @@ if __name__ == '__main__':
     num_workers = 1
     alpha = None
     if ep.lol:
-        eval_data = DataLoader(dataset=get_eval_set("./datasets/LOLdataset/eval15/low"), num_workers=num_workers, batch_size=1, shuffle=False)
+        eval_data = DataLoader(dataset=get_eval_set("E:/Pythonfile/Low-Light-Image-Enhancement/src/HVI-CIDNet/train_stage_1"), num_workers=num_workers, batch_size=1, shuffle=False)
         output_folder = './output/LOLv1/'
         if ep.perc:
             weight_path = './weights/LOLv1/w_perc.pth'
         else:
-            weight_path = './weights/LOLv1/wo_perc.pth'
+            weight_path = 'E:/Pythonfile/Low-Light-Image-Enhancement/src/HVI-CIDNet/weights/train/epoch_460_best_psnr.pth'
         
             
     elif ep.lol_v2_real:
