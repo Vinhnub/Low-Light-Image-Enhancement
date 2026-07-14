@@ -1,5 +1,5 @@
-import torch
 import os
+os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 import torch
 import random
 from torchvision import transforms
@@ -7,7 +7,7 @@ import torch.optim as optim
 import torch.backends.cudnn as cudnn
 import numpy as np
 from torch.utils.data import DataLoader
-from net.CIDNet import CIDNet
+from net.CIDNet_Mamba_separable_learning import CIDNet
 from data.options import option
 from measure import metrics
 from eval import eval
@@ -76,11 +76,38 @@ def train(epoch):
         # with torch.no_grad():
         #     _, feat_teacher = model(
         #         input_gt,
+        #         return_feats=True
+        #     )
+
         gt_rgb = im2
         output_hvi = model.HVIT(output_rgb)
         gt_hvi = model.HVIT(gt_rgb)
-        loss_hvi = L1_loss(output_hvi, gt_hvi) + D_loss(output_hvi, gt_hvi) + E_loss(output_hvi, gt_hvi) + opt.P_weight * P_loss(output_hvi, gt_hvi)[0] + LSGD_loss(output_hvi, gt_hvi, is_hvi=True)
-        loss_rgb = L1_loss(output_rgb, gt_rgb) + D_loss(output_rgb, gt_rgb) + E_loss(output_rgb, gt_rgb) + opt.P_weight * P_loss(output_rgb, gt_rgb)[0] + LSGD_loss(output_rgb, gt_rgb)
+                # --- Warm-up Loss Weights ---
+        warmup_epochs = 10     # Trọng số bằng 0 trong 10 epoch đầu
+        transition_epochs = 10 # Tăng dần trọng số từ 0 lên 1 trong 10 epoch tiếp theo
+        
+        if epoch <= warmup_epochs:
+            warm_up_multiplier = 0.0
+        else:
+            # Tăng dần tuyến tính từ 0.0 đến 1.0
+            warm_up_multiplier = min(1.0, (epoch - warmup_epochs) / transition_epochs)
+            
+        # Nhân hệ số warm_up_multiplier vào E_loss và LSGD_loss
+        loss_hvi = (
+            L1_loss(output_hvi, gt_hvi) 
+            + D_loss(output_hvi, gt_hvi) 
+            + opt.P_weight * P_loss(output_hvi, gt_hvi)[0] 
+            + warm_up_multiplier * E_loss(output_hvi, gt_hvi) 
+            + warm_up_multiplier * LSGD_loss(output_hvi, gt_hvi, is_hvi=True)
+        )
+        
+        loss_rgb = (
+            L1_loss(output_rgb, gt_rgb) 
+            + D_loss(output_rgb, gt_rgb) 
+            + opt.P_weight * P_loss(output_rgb, gt_rgb)[0] 
+            + warm_up_multiplier * E_loss(output_rgb, gt_rgb) 
+            + warm_up_multiplier * LSGD_loss(output_rgb, gt_rgb)
+        )
         loss = loss_rgb + opt.HVI_weight * loss_hvi
         iter += 1
         
