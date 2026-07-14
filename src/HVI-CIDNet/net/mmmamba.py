@@ -281,90 +281,6 @@ class Attention(nn.Module):
         output = torch.cat(output, dim=1)
         return output
 
-    # def reconstruct_images(self, final_result, w, x_vis, orders):
-    #     # ============= Their Code =============
-    #     # B, C, H, W = x_vis.shape
-    #     # L = H * W
-    #     # Hg, Wg = math.ceil(H / w), math.ceil(W / w)
-
-    #     # ============= My Code =============
-    #     B, C, H, W = x_vis.shape
-    #     L = H * W
-    #     orig_H = H
-    #     orig_W = W
-
-    #     if self.enable_padding:
-    #         pad_h = (w - H % w) % w
-    #         pad_w = (w - W % w) % w
-    #         H = H + pad_h
-    #         W = W + pad_w
-
-    #     Hg, Wg = H // w, W // w
-    #     patch_size = w * w
-
-    #     patch_size = w * w
-    #     sequences = [final_result[:, i] for i in range(4)]
-
-    #     y_vis = None
-    #     y_inf = None
-
-    #     for i, order in enumerate(orders):
-    #         seq = sequences[i].reshape(B, C, Hg, Wg, 2, patch_size)
-    #         patches1 = seq[:, :, :, :, 0, :].reshape(B, C, Hg, Wg, w, w)
-    #         patches2 = seq[:, :, :, :, 1, :].reshape(B, C, Hg, Wg, w, w)
-
-    #         if order == 'ltr_utd':
-    #             patches1 = patches1.permute(0, 1, 2, 4, 3, 5).contiguous()  # [B, Hg, Wg, w, w, C]
-    #             patches2 = patches2.permute(0, 1, 2, 4, 3, 5).contiguous()
-    #             img1 = patches1.view(B, C, Hg*w, Wg*w)
-    #             img2 = patches2.view(B, C, Hg*w, Wg*w)
-    #             if self.enable_padding:
-    #                 img1 = img1[:, :, :orig_H, :orig_W]
-    #                 img2 = img2[:, :, :orig_H, :orig_W]
-    #         elif order == 'rtl_dtu':
-    #             patches1 = patches1.flip(2, 3)  # 翻转patch的行和列顺序（Hg和Wg维度）
-    #             patches2 = patches2.flip(2, 3)
-                
-    #             patches1 = patches1.flip(4, 5)  # 翻转每个patch内的像素（w和w维度）
-    #             patches2 = patches2.flip(4, 5)
-                
-    #             img1 = patches1.permute(0, 1, 2, 4, 3, 5).contiguous().view(B, C, Hg*w, Wg*w)
-    #             img2 = patches2.permute(0, 1, 2, 4, 3, 5).contiguous().view(B, C, Hg*w, Wg*w)
-    #             if self.enable_padding:
-    #                 img1 = img1[:, :, :orig_H, :orig_W]
-    #                 img2 = img2[:, :, :orig_H, :orig_W]
-
-    #         elif order == 'utd_ltr':
-    #             patches1 = patches1.permute(0, 1, 2, 4, 3, 5).contiguous()
-    #             patches2 = patches2.permute(0, 1, 2, 4, 3, 5).contiguous()
-    #             img1 = patches1.view(B, C, Hg*w, Wg*w).transpose(-1, -2)
-    #             img2 = patches2.view(B, C, Hg*w, Wg*w).transpose(-1, -2)
-    #             if self.enable_padding:
-    #                 img1 = img1[:, :, :orig_H, :orig_W]
-    #                 img2 = img2[:, :, :orig_H, :orig_W]
-            
-    #         elif order == 'dtu_rtl':
-    #             patches1 = patches1.flip(2, 3)  # 翻转patch的行和列顺序（Hg和Wg维度）
-    #             patches2 = patches2.flip(2, 3)
-                
-    #             patches1 = patches1.flip(4, 5)  # 翻转每个patch内的像素（w和w维度）
-    #             patches2 = patches2.flip(4, 5)
-                
-    #             img1 = patches1.permute(0, 1, 2, 4, 3, 5).contiguous().view(B, C, Hg*w, Wg*w).transpose(2, 3)
-    #             img2 = patches2.permute(0, 1, 2, 4, 3, 5).contiguous().view(B, C, Hg*w, Wg*w).transpose(2, 3)
-    #             if self.enable_padding:
-    #                 img1 = img1[:, :, :orig_H, :orig_W]
-    #                 img2 = img2[:, :, :orig_H, :orig_W]
-
-    #         if y_vis == None:
-    #             y_vis = img1.contiguous().view(B, -1, L).contiguous()
-    #             y_inf = img2.contiguous().view(B, -1, L).contiguous()
-    #         else:
-    #             y_vis = y_vis + img1.contiguous().view(B, -1, L).contiguous()
-    #             y_inf = y_inf + img2.contiguous().view(B, -1, L).contiguous()
-
-    #     return y_vis, y_inf
-
     def reconstruct_images(self, final_result, w, x_vis, orders):
 
         B, C, H, W = x_vis.shape
@@ -396,105 +312,115 @@ class Attention(nn.Module):
 
         for i, order in enumerate(orders):
 
-            seq = sequences[i].reshape(
-                B, C, Hg, Wg, 2, patch_size
-            )
-
-            patches1 = seq[:, :, :, :, 0, :].reshape(
-                B, C, Hg, Wg, w, w
-            )
-
-            patches2 = seq[:, :, :, :, 1, :].reshape(
-                B, C, Hg, Wg, w, w
-            )
-
-            if order == 'ltr_utd':
-
-                img1 = (
-                    patches1.permute(
-                        0, 1, 2, 4, 3, 5
-                    )
-                    .contiguous()
-                    .view(B, C, H_pad, W_pad)
+            if order in ['utd_ltr', 'dtu_rtl']:
+                seq = sequences[i].reshape(
+                    B, C, Wg, Hg, 2, patch_size
                 )
 
-                img2 = (
-                    patches2.permute(
-                        0, 1, 2, 4, 3, 5
-                    )
-                    .contiguous()
-                    .view(B, C, H_pad, W_pad)
+                patches1 = seq[:, :, :, :, 0, :].reshape(
+                    B, C, Wg, Hg, w, w
                 )
 
-            elif order == 'rtl_dtu':
-
-                patches1 = patches1.flip(2, 3)
-                patches2 = patches2.flip(2, 3)
-
-                patches1 = patches1.flip(4, 5)
-                patches2 = patches2.flip(4, 5)
-
-                img1 = (
-                    patches1.permute(
-                        0, 1, 2, 4, 3, 5
-                    )
-                    .contiguous()
-                    .view(B, C, H_pad, W_pad)
+                patches2 = seq[:, :, :, :, 1, :].reshape(
+                    B, C, Wg, Hg, w, w
                 )
 
-                img2 = (
-                    patches2.permute(
-                        0, 1, 2, 4, 3, 5
+                if order == 'utd_ltr':
+                    img1 = (
+                        patches1.permute(
+                            0, 1, 2, 4, 3, 5
+                        )
+                        .contiguous()
+                        .view(B, C, W_pad, H_pad)
+                        .transpose(-1, -2)
                     )
-                    .contiguous()
-                    .view(B, C, H_pad, W_pad)
+
+                    img2 = (
+                        patches2.permute(
+                            0, 1, 2, 4, 3, 5
+                        )
+                        .contiguous()
+                        .view(B, C, W_pad, H_pad)
+                        .transpose(-1, -2)
+                    )
+
+                elif order == 'dtu_rtl':
+                    patches1 = patches1.flip(2, 3)
+                    patches2 = patches2.flip(2, 3)
+
+                    patches1 = patches1.flip(4, 5)
+                    patches2 = patches2.flip(4, 5)
+
+                    img1 = (
+                        patches1.permute(
+                            0, 1, 2, 4, 3, 5
+                        )
+                        .contiguous()
+                        .view(B, C, W_pad, H_pad)
+                        .transpose(2, 3)
+                    )
+
+                    img2 = (
+                        patches2.permute(
+                            0, 1, 2, 4, 3, 5
+                        )
+                        .contiguous()
+                        .view(B, C, W_pad, H_pad)
+                        .transpose(2, 3)
+                    )
+
+            else:
+                seq = sequences[i].reshape(
+                    B, C, Hg, Wg, 2, patch_size
                 )
 
-            elif order == 'utd_ltr':
-
-                img1 = (
-                    patches1.permute(
-                        0, 1, 2, 4, 3, 5
-                    )
-                    .contiguous()
-                    .view(B, C, H_pad, W_pad)
-                    .transpose(-1, -2)
+                patches1 = seq[:, :, :, :, 0, :].reshape(
+                    B, C, Hg, Wg, w, w
                 )
 
-                img2 = (
-                    patches2.permute(
-                        0, 1, 2, 4, 3, 5
-                    )
-                    .contiguous()
-                    .view(B, C, H_pad, W_pad)
-                    .transpose(-1, -2)
+                patches2 = seq[:, :, :, :, 1, :].reshape(
+                    B, C, Hg, Wg, w, w
                 )
 
-            elif order == 'dtu_rtl':
-
-                patches1 = patches1.flip(2, 3)
-                patches2 = patches2.flip(2, 3)
-
-                patches1 = patches1.flip(4, 5)
-                patches2 = patches2.flip(4, 5)
-
-                img1 = (
-                    patches1.permute(
-                        0, 1, 2, 4, 3, 5
+                if order == 'ltr_utd':
+                    img1 = (
+                        patches1.permute(
+                            0, 1, 2, 4, 3, 5
+                        )
+                        .contiguous()
+                        .view(B, C, H_pad, W_pad)
                     )
-                    .contiguous()
-                    .view(B, C, H_pad, W_pad)
-                    .transpose(2, 3)
-                )
 
-                img2 = (
-                    patches2.permute(
-                        0, 1, 2, 4, 3, 5
+                    img2 = (
+                        patches2.permute(
+                            0, 1, 2, 4, 3, 5
+                        )
+                        .contiguous()
+                        .view(B, C, H_pad, W_pad)
                     )
-                    .contiguous()
-                    .view(B, C, H_pad, W_pad)
-                    .transpose(2, 3)
-                )
+
+                elif order == 'rtl_dtu':
+                    patches1 = patches1.flip(2, 3)
+                    patches2 = patches2.flip(2, 3)
+
+                    patches1 = patches1.flip(4, 5)
+                    patches2 = patches2.flip(4, 5)
+
+                    img1 = (
+                        patches1.permute(
+                            0, 1, 2, 4, 3, 5
+                        )
+                        .contiguous()
+                        .view(B, C, H_pad, W_pad)
+                    )
+
+                    img2 = (
+                        patches2.permute(
+                            0, 1, 2, 4, 3, 5
+                        )
+                        .contiguous()
+                        .view(B, C, H_pad, W_pad)
+                    )
 
             # flatten trên ảnh padded
             img1_flat = img1.contiguous().view(
@@ -680,75 +606,25 @@ class MMMamba(nn.Module):
         self.norm_pan_2= LayerNorm(dim, LayerNorm_type)
         self.norm_ms_2 = LayerNorm(dim, LayerNorm_type)
 
-
         self.attn = Attention(dim,window_size=2, enable_padding=True)
         self.ffn =FeedForward(dim,ffn_expansion_factor=2)
+        
     def forward(self,x):
-        ms,pan = x
+        ms,pan = x        
         ms_f,pan_f = self.attn(self.norm_ms(ms),self.norm_pan(pan))
         ms = ms_f+ms
         pan = pan_f+pan
         ms = self.ffn(self.norm_ms_2(ms))+ms
         pan = self.ffn(self.norm_pan_2(pan))+pan
         return [ms,pan]
-# class CrossAttention(nn.Module):
-#     def __init__(self, dim, num_heads, bias):
-#         super(CrossAttention, self).__init__()
-#         self.num_heads = num_heads
-#         self.temperature = nn.Parameter(torch.ones(num_heads, 1, 1))
-
-#         self.kv = nn.Conv2d(dim, dim * 2, kernel_size=1, bias=bias)
-#         self.kv_dwconv = nn.Conv2d(dim * 2, dim * 2, kernel_size=3, stride=1, padding=1, groups=dim * 2, bias=bias)
-#         self.q = nn.Conv2d(dim, dim, kernel_size=1, bias=bias)
-#         self.q_dwconv = nn.Conv2d(dim, dim, kernel_size=3, stride=1, padding=1, bias=bias)
-#         self.project_out = nn.Conv2d(dim, dim, kernel_size=1, bias=bias)
-
-#     def forward(self, ms, pan):
-#         b, c, h, w = ms.shape
-
-#         kv = self.kv_dwconv(self.kv(pan))
-#         k, v = kv.chunk(2, dim=1)
-#         q = self.q_dwconv(self.q(ms))
-
-#         q = rearrange(q, 'b (head c) h w -> b head c (h w)', head=self.num_heads)
-#         k = rearrange(k, 'b (head c) h w -> b head c (h w)', head=self.num_heads)
-#         v = rearrange(v, 'b (head c) h w -> b head c (h w)', head=self.num_heads)
-
-#         q = torch.nn.functional.normalize(q, dim=-1)
-#         k = torch.nn.functional.normalize(k, dim=-1)
-
-#         attn = (q @ k.transpose(-2, -1)) * self.temperature
-#         attn = attn.softmax(dim=-1)
-
-#         out = (attn @ v)
-
-#         out = rearrange(out, 'b head c (h w) -> b (head c) h w', head=self.num_heads, h=h, w=w)
-
-#         out = self.project_out(out)
-#         return out
 
 def to_4d(x, h, w):
     return rearrange(x, 'b (h w) c -> b c h w', h=h, w=w)
-# class TransformerBlock(nn.Module):
-#     def __init__(self, dim, num_heads, ffn_expansion_factor, bias, LayerNorm_type):
-#         super(TransformerBlock, self).__init__()
-#         self.norm_cro1= LayerNorm(dim, LayerNorm_type)
-#         self.norm_cro2 = LayerNorm(dim, LayerNorm_type)
-#         self.norm1 = LayerNorm(dim, LayerNorm_type)
-#         self.norm2 = LayerNorm(dim, LayerNorm_type)
-#         self.ffn = FeedForward(dim, ffn_expansion_factor, bias)
-#         self.cro = CrossAttention(dim,num_heads,bias)
-#         self.proj = nn.Conv2d(dim,dim,1,1,0)
-#     def forward(self, ms,pan):
-#         ms = ms+self.cro(self.norm_cro1(ms),self.norm_cro2(pan))
-#         ms = ms + self.ffn(self.norm2(ms))
-#         return ms
-
 
 class BiasFree_LayerNorm(nn.Module):
     def __init__(self, normalized_shape):
         super(BiasFree_LayerNorm, self).__init__()
-        if isinstance(normalized_shape, numbers.Integral):
+        if isinstance(normalized_shape, numbers.Integral):  
             normalized_shape = (normalized_shape,)
         normalized_shape = torch.Size(normalized_shape)
 
@@ -838,17 +714,7 @@ class PatchEmbed(nn.Module):
             x = x.flatten(2).transpose(1, 2)  # BCHW -> BNC
         # x = self.norm(x)
         return x
-# class SingleMambaBlock(nn.Module):
-#     def __init__(self, dim):
-#         super(SingleMambaBlock, self).__init__()
-#         self.encoder = Mamba(dim,bimamba_type=None)
-#         self.norm = LayerNorm(dim,'with_bias')
-#         # self.PatchEmbe=PatchEmbed(patch_size=4, stride=4,in_chans=dim, embed_dim=dim*16)
-#     def forward(self,ipt):
-#         x,residual = ipt
-#         residual = x+residual
-#         x = self.norm(residual)
-#         return (self.encoder(x),residual)
+
 import random
 class TokenSwapMamba(nn.Module):
     def __init__(self, dim):

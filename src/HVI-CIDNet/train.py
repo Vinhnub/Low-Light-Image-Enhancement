@@ -76,9 +76,6 @@ def train(epoch):
         # with torch.no_grad():
         #     _, feat_teacher = model(
         #         input_gt,
-        #         return_feats=True
-        #     )
-
         gt_rgb = im2
         output_hvi = model.HVIT(output_rgb)
         gt_hvi = model.HVIT(gt_rgb)
