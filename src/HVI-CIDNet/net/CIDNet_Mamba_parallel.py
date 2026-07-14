@@ -76,19 +76,19 @@ class CIDNet(nn.Module, PyTorchModelHubMixin):
         self.MMMamba_5 = MMMamba(ch3)
         self.MMMamba_6 = MMMamba(ch2)
 
-        self.Combine_I_1 = nn.Conv2d(ch1 * 2, ch1, kernel_size=1, stride=1, padding=0, bias=False)
-        self.Combine_I_2 = nn.Conv2d(ch2 * 2, ch2, kernel_size=1, stride=1, padding=0, bias=False)
-        self.Combine_I_3 = nn.Conv2d(ch3 * 2, ch3, kernel_size=1, stride=1, padding=0, bias=False)
-        self.Combine_I_4 = nn.Conv2d(ch3 * 2, ch3, kernel_size=1, stride=1, padding=0, bias=False)
-        self.Combine_I_5 = nn.Conv2d(ch2 * 2, ch2, kernel_size=1, stride=1, padding=0, bias=False)
-        self.Combine_I_6 = nn.Conv2d(ch1 * 2, ch1, kernel_size=1, stride=1, padding=0, bias=False)
-        
-        self.Combine_HV_1 = nn.Conv2d(ch1 * 2, ch1, kernel_size=1, stride=1, padding=0, bias=False)
-        self.Combine_HV_2 = nn.Conv2d(ch2 * 2, ch2, kernel_size=1, stride=1, padding=0, bias=False)
-        self.Combine_HV_3 = nn.Conv2d(ch3 * 2, ch3, kernel_size=1, stride=1, padding=0, bias=False)
-        self.Combine_HV_4 = nn.Conv2d(ch3 * 2, ch3, kernel_size=1, stride=1, padding=0, bias=False)
-        self.Combine_HV_5 = nn.Conv2d(ch2 * 2, ch2, kernel_size=1, stride=1, padding=0, bias=False)
-        self.Combine_HV_6 = nn.Conv2d(ch1 * 2, ch1, kernel_size=1, stride=1, padding=0, bias=False)
+        self.Combine_I_1 = nn.Conv2d(ch2 * 2, ch2, kernel_size=1, stride=1, padding=0, bias=False)
+        self.Combine_I_2 = nn.Conv2d(ch3 * 2, ch3, kernel_size=1, stride=1, padding=0, bias=False)
+        self.Combine_I_3 = nn.Conv2d(ch4 * 2, ch4, kernel_size=1, stride=1, padding=0, bias=False)
+        self.Combine_I_4 = nn.Conv2d(ch4 * 2, ch4, kernel_size=1, stride=1, padding=0, bias=False)
+        self.Combine_I_5 = nn.Conv2d(ch3 * 2, ch3, kernel_size=1, stride=1, padding=0, bias=False)
+        self.Combine_I_6 = nn.Conv2d(ch2 * 2, ch2, kernel_size=1, stride=1, padding=0, bias=False)
+
+        self.Combine_HV_1 = nn.Conv2d(ch2 * 2, ch2, kernel_size=1, stride=1, padding=0, bias=False)
+        self.Combine_HV_2 = nn.Conv2d(ch3 * 2, ch3, kernel_size=1, stride=1, padding=0, bias=False)
+        self.Combine_HV_3 = nn.Conv2d(ch4 * 2, ch4, kernel_size=1, stride=1, padding=0, bias=False)
+        self.Combine_HV_4 = nn.Conv2d(ch4 * 2, ch4, kernel_size=1, stride=1, padding=0, bias=False)
+        self.Combine_HV_5 = nn.Conv2d(ch3 * 2, ch3, kernel_size=1, stride=1, padding=0, bias=False)
+        self.Combine_HV_6 = nn.Conv2d(ch2 * 2, ch2, kernel_size=1, stride=1, padding=0, bias=False)
 
         self.trans = RGB_HVI()
         
