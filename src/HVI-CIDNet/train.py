@@ -41,7 +41,15 @@ def train(epoch):
     loss_print = 0
     pic_cnt = 0
     loss_last_10 = 0
-    #loss_lsgd_print = 0
+    
+    # Add accumulators for individual losses
+    l1_sum = 0
+    l2_sum = 0
+    d_sum = 0
+    p_sum = 0
+    e_sum = 0
+    lsgd_sum = 0
+
     pic_last_10 = 0
     train_len = len(training_data_loader)
     iter = 0
@@ -92,23 +100,36 @@ def train(epoch):
             # Tăng dần tuyến tính từ 0.0 đến 1.0
             warm_up_multiplier = min(1.0, (epoch - warmup_epochs) / transition_epochs)
             
-        # Nhân hệ số warm_up_multiplier vào E_loss và LSGD_loss
-        loss_hvi = (
-            L1_loss(output_hvi, gt_hvi) 
-            + D_loss(output_hvi, gt_hvi) 
-            + opt.P_weight * P_loss(output_hvi, gt_hvi)[0] 
-            + warm_up_multiplier * E_loss(output_hvi, gt_hvi) 
-            + warm_up_multiplier * LSGD_loss(output_hvi, gt_hvi, is_hvi=True)
-        )
+        # Tính toán riêng biệt từng loss cho RGB
+        l1_rgb = L1_loss(output_rgb, gt_rgb)
+        l2_rgb = L2_loss(output_rgb, gt_rgb)
+        d_rgb = D_loss(output_rgb, gt_rgb)
+        p_rgb = opt.P_weight * P_loss(output_rgb, gt_rgb)[0]
+        e_rgb = warm_up_multiplier * E_loss(output_rgb, gt_rgb)
+        lsgd_rgb = warm_up_multiplier * LSGD_loss(output_rgb, gt_rgb)
         
-        loss_rgb = (
-            L1_loss(output_rgb, gt_rgb) 
-            + D_loss(output_rgb, gt_rgb) 
-            + opt.P_weight * P_loss(output_rgb, gt_rgb)[0] 
-            + warm_up_multiplier * E_loss(output_rgb, gt_rgb) 
-            + warm_up_multiplier * LSGD_loss(output_rgb, gt_rgb)
-        )
+        loss_rgb = l1_rgb + l2_rgb + d_rgb + p_rgb + e_rgb + lsgd_rgb
+        
+        # Tính toán riêng biệt từng loss cho HVI
+        l1_hvi = L1_loss(output_hvi, gt_hvi)
+        l2_hvi = L2_loss(output_hvi, gt_hvi)
+        d_hvi = D_loss(output_hvi, gt_hvi)
+        p_hvi = opt.P_weight * P_loss(output_hvi, gt_hvi)[0]
+        e_hvi = warm_up_multiplier * E_loss(output_hvi, gt_hvi)
+        lsgd_hvi = warm_up_multiplier * LSGD_loss(output_hvi, gt_hvi, is_hvi=True)
+        
+        loss_hvi = l1_hvi + l2_hvi + d_hvi + p_hvi + e_hvi + lsgd_hvi
+        
         loss = loss_rgb + opt.HVI_weight * loss_hvi
+        
+        # Tích lũy giá trị loss để in ra
+        l1_sum += (l1_rgb.item() + opt.HVI_weight * l1_hvi.item())
+        l2_sum += (l2_rgb.item() + opt.HVI_weight * l2_hvi.item())
+        d_sum += (d_rgb.item() + opt.HVI_weight * d_hvi.item())
+        p_sum += (p_rgb.item() + opt.HVI_weight * p_hvi.item())
+        e_sum += (e_rgb.item() + opt.HVI_weight * e_hvi.item())
+        lsgd_sum += (lsgd_rgb.item() + opt.HVI_weight * lsgd_hvi.item())
+        
         iter += 1
         
         if opt.grad_clip:
@@ -124,8 +145,16 @@ def train(epoch):
         pic_cnt += 1
         pic_last_10 += 1
         if iter == train_len:
-            print("===> Epoch[{}]: Loss: {:.4f} || Learning rate: lr={}.".format(epoch,
-                loss_last_10/pic_last_10, optimizer.param_groups[0]['lr']))
+            print("===> Epoch[{}]: Total Loss: {:.4f} || L1: {:.4f} | L2: {:.4f} | D(SSIM): {:.4f} | P(VGG): {:.4f} | Edge: {:.4f} | LSGD: {:.4f} || lr={}.".format(
+                epoch,
+                loss_last_10/pic_last_10, 
+                l1_sum/pic_cnt,
+                l2_sum/pic_cnt,
+                d_sum/pic_cnt,
+                p_sum/pic_cnt,
+                e_sum/pic_cnt,
+                lsgd_sum/pic_cnt,
+                optimizer.param_groups[0]['lr']))
             loss_last_10 = 0
             pic_last_10 = 0
             output_img = transforms.ToPILImage()((output_rgb)[0].squeeze(0))
@@ -215,12 +244,14 @@ def make_scheduler():
 
 def init_loss():
     L1_weight   = opt.L1_weight
+    L2_weight   = opt.L2_weight
     D_weight    = opt.D_weight 
     E_weight    = opt.E_weight 
     P_weight    = 1.0
     LSGD_weight = opt.LSGD_weight
     
     L1_loss= L1Loss(loss_weight=L1_weight, reduction='mean').cuda()
+    L2_loss= L2Loss(loss_weight=L2_weight, reduction='mean').cuda()
     D_loss = SSIM(weight=D_weight).cuda()
     E_loss = EdgeLoss(loss_weight=E_weight).cuda()
     P_loss = PerceptualLoss({'conv1_2': 1, 'conv2_2': 1,'conv3_4': 1,'conv4_4': 1}, perceptual_weight = P_weight ,criterion='mse').cuda()
@@ -228,6 +259,7 @@ def init_loss():
 
     return (
         L1_loss,
+        L2_loss,
         P_loss,
         E_loss,
         D_loss,
@@ -243,7 +275,7 @@ if __name__ == '__main__':
     training_data_loader, testing_data_loader = load_datasets()
     model = build_model()
     optimizer,scheduler = make_scheduler()
-    L1_loss, P_loss, E_loss, D_loss, LSGD_loss = init_loss()
+    L1_loss, L2_loss, P_loss, E_loss, D_loss, LSGD_loss = init_loss()
     
     '''
     train
@@ -265,6 +297,7 @@ if __name__ == '__main__':
         f.write(f"crop size: {opt.cropSize}\n")  
         f.write(f"HVI_weight: {opt.HVI_weight}\n")  
         f.write(f"L1_weight: {opt.L1_weight}\n")  
+        f.write(f"L2_weight: {opt.L2_weight}\n")  
         f.write(f"D_weight: {opt.D_weight}\n")  
         f.write(f"E_weight: {opt.E_weight}\n")  
         f.write(f"P_weight: {opt.P_weight}\n")  
