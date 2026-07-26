@@ -366,3 +366,29 @@ class RegionLSGDLoss(nn.Module):
         loss = (loss_x + loss_y)
 
         return (loss * self.loss_weight)
+
+
+class ExposureControlLoss(nn.Module):
+    """
+    Exposure Control Loss (commonly used in Zero-DCE).
+    Ép mô hình nâng độ sáng trung bình của các vùng (patch) lên một mức cố định (ví dụ 0.6).
+    """
+    def __init__(self, patch_size=16, mean_val=0.6, loss_weight=1.0):
+        super(ExposureControlLoss, self).__init__()
+        # Dùng Average Pooling để tính trung bình độ sáng của từng vùng kích thước patch_size x patch_size
+        self.pool = nn.AvgPool2d(patch_size)
+        self.mean_val = mean_val
+        self.loss_weight = loss_weight
+
+    def forward(self, pred):
+        """
+        Args:
+            pred (Tensor): Ảnh dự đoán (RGB) hoặc kênh Độ sáng (I). Shape: [B, C, H, W]
+        """
+        # Tính cường độ sáng trung bình của từng vùng
+        pred_mean = self.pool(pred)
+        
+        # Phạt nếu độ sáng trung bình của vùng đó khác với mean_val (mức sáng chuẩn)
+        loss = torch.mean(torch.abs(pred_mean - self.mean_val))
+        
+        return loss * self.loss_weight

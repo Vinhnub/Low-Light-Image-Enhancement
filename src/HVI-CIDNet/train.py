@@ -49,6 +49,7 @@ def train(epoch):
     p_sum = 0
     e_sum = 0
     lsgd_sum = 0
+    exp_sum = 0
 
     pic_last_10 = 0
     train_len = len(training_data_loader)
@@ -118,7 +119,10 @@ def train(epoch):
         e_hvi = warm_up_multiplier * E_loss(output_hvi, gt_hvi)
         lsgd_hvi = warm_up_multiplier * LSGD_loss(output_hvi, gt_hvi, is_hvi=True)
         
-        loss_hvi = l1_hvi + l2_hvi + d_hvi + p_hvi + e_hvi + lsgd_hvi
+        # Exposure Loss tính trực tiếp trên kênh I (Intensity) của output_hvi
+        exp_hvi = EXP_loss(output_hvi[:, 2:3, :, :])
+        
+        loss_hvi = l1_hvi + l2_hvi + d_hvi + p_hvi + e_hvi + lsgd_hvi + exp_hvi
         
         loss = loss_rgb + opt.HVI_weight * loss_hvi
         
@@ -129,6 +133,7 @@ def train(epoch):
         p_sum += (p_rgb.item() + opt.HVI_weight * p_hvi.item())
         e_sum += (e_rgb.item() + opt.HVI_weight * e_hvi.item())
         lsgd_sum += (lsgd_rgb.item() + opt.HVI_weight * lsgd_hvi.item())
+        exp_sum += (opt.HVI_weight * exp_hvi.item())
         
         iter += 1
         
@@ -145,7 +150,7 @@ def train(epoch):
         pic_cnt += 1
         pic_last_10 += 1
         if iter == train_len:
-            print("===> Epoch[{}]: Total Loss: {:.4f} || L1: {:.4f} | L2: {:.4f} | D(SSIM): {:.4f} | P(VGG): {:.4f} | Edge: {:.4f} | LSGD: {:.4f} || lr={}.".format(
+            print("===> Epoch[{}]: Total Loss: {:.4f} || L1: {:.4f} | L2: {:.4f} | D(SSIM): {:.4f} | P(VGG): {:.4f} | Edge: {:.4f} | LSGD: {:.4f} | EXP: {:.4f} || lr={}.".format(
                 epoch,
                 loss_last_10/pic_last_10, 
                 l1_sum/pic_cnt,
@@ -154,6 +159,7 @@ def train(epoch):
                 p_sum/pic_cnt,
                 e_sum/pic_cnt,
                 lsgd_sum/pic_cnt,
+                exp_sum/pic_cnt,
                 optimizer.param_groups[0]['lr']))
             loss_last_10 = 0
             pic_last_10 = 0
@@ -249,13 +255,13 @@ def init_loss():
     E_weight    = opt.E_weight 
     P_weight    = 1.0
     LSGD_weight = opt.LSGD_weight
-    
     L1_loss= L1Loss(loss_weight=L1_weight, reduction='mean').cuda()
     L2_loss= L2Loss(loss_weight=L2_weight, reduction='mean').cuda()
     D_loss = SSIM(weight=D_weight).cuda()
     E_loss = EdgeLoss(loss_weight=E_weight).cuda()
     P_loss = PerceptualLoss({'conv1_2': 1, 'conv2_2': 1,'conv3_4': 1,'conv4_4': 1}, perceptual_weight = P_weight ,criterion='mse').cuda()
     LSGD_loss = RegionLSGDLoss(loss_weight=LSGD_weight).cuda()
+    EXP_loss = ExposureControlLoss(patch_size=16, mean_val=0.6, loss_weight=0.5).cuda()
 
     return (
         L1_loss,
@@ -263,7 +269,8 @@ def init_loss():
         P_loss,
         E_loss,
         D_loss,
-        LSGD_loss
+        LSGD_loss,
+        EXP_loss
     )
 
 if __name__ == '__main__':  
@@ -275,7 +282,7 @@ if __name__ == '__main__':
     training_data_loader, testing_data_loader = load_datasets()
     model = build_model()
     optimizer,scheduler = make_scheduler()
-    L1_loss, L2_loss, P_loss, E_loss, D_loss, LSGD_loss = init_loss()
+    L1_loss, L2_loss, P_loss, E_loss, D_loss, LSGD_loss, EXP_loss = init_loss()
     
     '''
     train

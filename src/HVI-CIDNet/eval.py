@@ -6,7 +6,7 @@ from data.data import *
 from torchvision import transforms
 from torch.utils.data import DataLoader
 from loss.losses import *
-from net.CIDNet import CIDNet
+from net.CIDNet_base import CIDNet
 
 
 def eval(model, testing_data_loader, model_path, output_folder,norm_size=True,LOL=False,v2=False,unpaired=False,alpha=1.0,gamma=1.0):
@@ -100,13 +100,13 @@ if __name__ == '__main__':
         
             
     elif ep.lol_v2_real:
-        eval_data = DataLoader(dataset=get_eval_set("./datasets/LOLv2/Real_captured/Test/Low"), num_workers=num_workers, batch_size=1, shuffle=False)
-        output_folder = './output/LOLv2_real/'
+        eval_data = DataLoader(dataset=get_eval_set("E:/PythonFile/Project/Low-Light-Image-Enhancement/mydata/dataset/dataset/LOLv2-real/Test/Input"), num_workers=num_workers, batch_size=1, shuffle=False)
+        output_folder = './output/LOLv2_real_WOP/'
         if ep.best_GT_mean:
             weight_path = './weights/LOLv2_real/w_perc.pth'
             alpha = 0.84
         elif ep.best_PSNR:
-            weight_path = './weights/LOLv2_real/best_PSNR.pth'
+            weight_path = "E:/PythonFile/Project/Low-Light-Image-Enhancement/src/HVI-CIDNet/weights/train/LOLv1/CIDNet_LSGD/epoch_530_best.pth"
             alpha = 0.8
         elif ep.best_SSIM:
             weight_path = './weights/LOLv2_real/best_SSIM.pth'
