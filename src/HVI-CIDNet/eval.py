@@ -100,13 +100,13 @@ if __name__ == '__main__':
         
             
     elif ep.lol_v2_real:
-        eval_data = DataLoader(dataset=get_eval_set("E:/PythonFile/Project/Low-Light-Image-Enhancement/mydata/dataset/dataset/LOLv2-real/Test/Input"), num_workers=num_workers, batch_size=1, shuffle=False)
-        output_folder = './output/LOLv2_real_WOP/'
+        eval_data = DataLoader(dataset=get_eval_set("/kaggle/input/datasets/vinhnub/lolv2-real/LOLv2-real/Test/Input"), num_workers=num_workers, batch_size=1, shuffle=False)
+        output_folder = './output/LOLv2_real/'
         if ep.best_GT_mean:
             weight_path = './weights/LOLv2_real/w_perc.pth'
             alpha = 0.84
         elif ep.best_PSNR:
-            weight_path = "E:/PythonFile/Project/Low-Light-Image-Enhancement/src/HVI-CIDNet/weights/train/LOLv1/CIDNet_LSGD/epoch_530_best.pth"
+            weight_path = '/kaggle/input/datasets/vinhnub/weightmamba/epoch_440_best_psnr.pth'
             alpha = 0.8
         elif ep.best_SSIM:
             weight_path = './weights/LOLv2_real/best_SSIM.pth'
