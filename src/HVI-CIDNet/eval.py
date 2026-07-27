@@ -91,12 +91,12 @@ if __name__ == '__main__':
     num_workers = 1
     alpha = None
     if ep.lol:
-        eval_data = DataLoader(dataset=get_eval_set("E:/Pythonfile/Low-Light-Image-Enhancement/src/HVI-CIDNet/train_stage_1"), num_workers=num_workers, batch_size=1, shuffle=False)
+        eval_data = DataLoader(dataset=get_eval_set("/kaggle/input/datasets/vinhnub/lolv1-dataset/LOLv1/test/low"), num_workers=num_workers, batch_size=1, shuffle=False)
         output_folder = './output/LOLv1/'
         if ep.perc:
             weight_path = './weights/LOLv1/w_perc.pth'
         else:
-            weight_path = 'E:/Pythonfile/Low-Light-Image-Enhancement/src/HVI-CIDNet/weights/train/epoch_460_best_psnr.pth'
+            weight_path = '/kaggle/input/datasets/vinhnub/weightmamba/epoch_440_best_psnr.pth'
         
             
     elif ep.lol_v2_real:
