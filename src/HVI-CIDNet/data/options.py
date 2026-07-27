@@ -11,9 +11,9 @@ def _str2bool(v):
 def option():
     # Training settings
     parser = argparse.ArgumentParser(description='CIDNet')
-    parser.add_argument('--batchSize', type=int, default=1, help='training batch size')
-    parser.add_argument('--cropSize', type=int, default=8, help='image crop size (patch size)')
-    parser.add_argument('--nEpochs', type=int, default=100, help='number of epochs to train for end')
+    parser.add_argument('--batchSize', type=int, default=8, help='training batch size')
+    parser.add_argument('--cropSize', type=int, default=400, help='image crop size (patch size)')
+    parser.add_argument('--nEpochs', type=int, default=1000, help='number of epochs to train for end')
     parser.add_argument('--start_epoch', type=int, default=0, help='number of epochs to start, >0 is retrained a pre-trained pth')
     parser.add_argument('--snapshots', type=int, default=10, help='Snapshots for save checkpoints pth')
     parser.add_argument('--lr', type=float, default=1e-4, help='Learning Rate')
@@ -32,7 +32,7 @@ def option():
     # train datasets
     parser.add_argument('--data_train_lol_blur'     , type=str, default='./datasets/LOL_blur/train')
     parser.add_argument('--data_train_lol_v1'       , type=str, default='E:/PythonFile/Project/Low-Light-Image-Enhancement/mydata/dataset/dataset/LOLv1/train')
-    parser.add_argument('--data_train_lolv2_real'   , type=str, default='./datasets/LOLv2/Real_captured/Train')
+    parser.add_argument('--data_train_lolv2_real'   , type=str, default='/kaggle/input/datasets/vinhnub/lolv2-real/LOLv2-real/Train')
     parser.add_argument('--data_train_lolv2_syn'    , type=str, default='./datasets/LOLv2/Synthetic/Train')
     parser.add_argument('--data_train_SID'          , type=str, default='./datasets/Sony_total_dark/train')
     parser.add_argument('--data_train_SICE'         , type=str, default='./datasets/SICE/Dataset/train')
@@ -41,7 +41,7 @@ def option():
     # validation input
     parser.add_argument('--data_val_lol_blur'       , type=str, default='./datasets/LOL_blur/eval/low_blur')
     parser.add_argument('--data_val_lol_v1'         , type=str, default='E:/PythonFile/Project/Low-Light-Image-Enhancement/mydata/dataset/dataset/LOLv1/test/low')
-    parser.add_argument('--data_val_lolv2_real'     , type=str, default='./datasets/LOLv2/Real_captured/Test/Low')
+    parser.add_argument('--data_val_lolv2_real'     , type=str, default='/kaggle/input/datasets/vinhnub/lolv2-real/LOLv2-real/Test/Input')
     parser.add_argument('--data_val_lolv2_syn'      , type=str, default='./datasets/LOLv2/Synthetic/Test/Low')
     parser.add_argument('--data_val_SID'            , type=str, default='./datasets/Sony_total_dark/eval/short')
     parser.add_argument('--data_val_SICE_mix'       , type=str, default='./datasets/SICE/Dataset/eval/test')
@@ -51,7 +51,7 @@ def option():
     # validation groundtruth
     parser.add_argument('--data_valgt_lol_blur'     , type=str, default='./datasets/LOL_blur/eval/high_sharp_scaled/')
     parser.add_argument('--data_valgt_lol_v1'       , type=str, default='E:/PythonFile/Project/Low-Light-Image-Enhancement/mydata/dataset/dataset/LOLv1/test/high/')
-    parser.add_argument('--data_valgt_lolv2_real'   , type=str, default='./datasets/LOLv2/Real_captured/Test/Normal/')
+    parser.add_argument('--data_valgt_lolv2_real'   , type=str, default='/kaggle/input/datasets/vinhnub/lolv2-real/LOLv2-real/Test/GT/')
     parser.add_argument('--data_valgt_lolv2_syn'    , type=str, default='./datasets/LOLv2/Synthetic/Test/Normal/')
     parser.add_argument('--data_valgt_SID'          , type=str, default='./datasets/Sony_total_dark/eval/long/')
     parser.add_argument('--data_valgt_SICE_mix'     , type=str, default='./datasets/SICE/Dataset/eval/target/')
@@ -66,8 +66,8 @@ def option():
     parser.add_argument('--L2_weight', type=float, default=0.0)
     parser.add_argument('--D_weight',  type=float, default=0.5)
     parser.add_argument('--E_weight',  type=float, default=50.0)
-    parser.add_argument('--P_weight',  type=float, default=0)
-    parser.add_argument('--LSGD_weight', type=float, default=1.0)
+    parser.add_argument('--P_weight',  type=float, default=0.01)
+    parser.add_argument('--LSGD_weight', type=float, default=0.0)
     
     # use random gamma function (enhancement curve) to improve generalization
     parser.add_argument('--gamma', type=_str2bool, default=False)

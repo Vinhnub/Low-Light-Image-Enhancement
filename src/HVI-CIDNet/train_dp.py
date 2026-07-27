@@ -1,5 +1,8 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+# Đặt mặc định sử dụng 2 GPU (0 và 1) nếu người dùng chưa chỉ định trong biến môi trường
+if 'CUDA_VISIBLE_DEVICES' not in os.environ:
+    os.environ['CUDA_VISIBLE_DEVICES'] = '0,1'
+
 import torch
 import random
 from torchvision import transforms
@@ -27,15 +30,22 @@ def seed_torch():
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
     os.environ['PYTHONHASHSEED'] = str(seed)
-    
+
 def train_init():
     seed_torch()
     cudnn.benchmark = True
-    os.environ['CUDA_VISIBLE_DEVICES'] = '0'
     cuda = opt.gpu_mode
     if cuda and not torch.cuda.is_available():
         raise Exception("No GPU found, please run without --cuda")
-    
+
+def get_model_module(model):
+    """
+    Hàm hỗ trợ lấy module gốc khi model được bọc bởi DataParallel hoặc DistributedDataParallel.
+    """
+    if isinstance(model, (torch.nn.DataParallel, torch.nn.parallel.DistributedDataParallel)):
+        return model.module
+    return model
+
 def train(epoch):
     model.train()
     loss_print = 0
@@ -62,43 +72,35 @@ def train(epoch):
         
         # use random gamma function (enhancement curve) to improve generalization
         if opt.gamma:
-
             gamma = (
                 random.randint(
                     opt.start_gamma,
                     opt.end_gamma
                 ) / 100.0
             )
-
             input_low = im1 ** gamma
             input_gt = im2 ** gamma
-
         else:
-
             input_low = im1
             input_gt = im2
 
-        output_rgb = model(
-            input_low
-        )
+        # Forward pass qua DataParallel (sẽ tự động chia batch sang 2 GPU)
+        output_rgb = model(input_low)
             
-        # with torch.no_grad():
-        #     _, feat_teacher = model(
-        #         input_gt,
-        #         return_feats=True
-        #     )
-
         gt_rgb = im2
-        output_hvi = model.HVIT(output_rgb)
-        gt_hvi = model.HVIT(gt_rgb)
-                # --- Warm-up Loss Weights ---
+        
+        # Vì model có thể được bọc bởi DataParallel, gọi các phương thức riêng như HVIT qua get_model_module(model)
+        model_module = get_model_module(model)
+        output_hvi = model_module.HVIT(output_rgb)
+        gt_hvi = model_module.HVIT(gt_rgb)
+        
+        # --- Warm-up Loss Weights ---
         warmup_epochs = 10     # Trọng số bằng 0 trong 10 epoch đầu
         transition_epochs = 10 # Tăng dần trọng số từ 0 lên 1 trong 10 epoch tiếp theo
         
         if epoch <= warmup_epochs:
             warm_up_multiplier = 0.0
         else:
-            # Tăng dần tuyến tính từ 0.0 đến 1.0
             warm_up_multiplier = min(1.0, (epoch - warmup_epochs) / transition_epochs)
             
         # Tính toán riêng biệt từng loss cho RGB
@@ -146,7 +148,6 @@ def train(epoch):
         
         loss_print = loss_print + loss.item()
         loss_last_10 = loss_last_10 + loss.item()
-        #loss_lsgd_print += loss_lsgd.item()
         pic_cnt += 1
         pic_last_10 += 1
         if iter == train_len:
@@ -163,22 +164,23 @@ def train(epoch):
                 optimizer.param_groups[0]['lr']))
             loss_last_10 = 0
             pic_last_10 = 0
-            output_img = transforms.ToPILImage()((output_rgb)[0].squeeze(0))
-            gt_img = transforms.ToPILImage()((gt_rgb)[0].squeeze(0))
+            # Dùng .detach().cpu() để đảm bảo an toàn khi chuyển đổi tensor sang PIL Image
+            output_img = transforms.ToPILImage()((output_rgb)[0].detach().cpu().squeeze(0))
+            gt_img = transforms.ToPILImage()((gt_rgb)[0].detach().cpu().squeeze(0))
             if not os.path.exists(opt.val_folder+'training'):          
-                os.mkdir(opt.val_folder+'training') 
+                os.makedirs(opt.val_folder+'training', exist_ok=True) 
             output_img.save(opt.val_folder+'training/test.png')
             gt_img.save(opt.val_folder+'training/gt.png')
     return loss_print, pic_cnt
-                
 
 def checkpoint(epoch):
     if not os.path.exists("./weights"):          
-        os.mkdir("./weights") 
+        os.makedirs("./weights", exist_ok=True) 
     if not os.path.exists("./weights/train"):          
-        os.mkdir("./weights/train")  
+        os.makedirs("./weights/train", exist_ok=True)  
     model_out_path = "./weights/train/epoch_{}.pth".format(epoch)
-    torch.save(model.state_dict(), model_out_path)
+    # Lưu state_dict của module gốc (không kèm tiền tố 'module.') để tương thích 100% với file eval.py
+    torch.save(get_model_module(model).state_dict(), model_out_path)
     print("Checkpoint saved to {}".format(model_out_path))
     return model_out_path
     
@@ -187,31 +189,24 @@ def load_datasets():
     if opt.dataset == 'lol_v1':
         train_set = get_lol_training_set(opt.data_train_lol_v1,size=opt.cropSize)
         test_set = get_eval_set(opt.data_val_lol_v1)
-        
     elif opt.dataset == 'lol_blur':
         train_set = get_training_set_blur(opt.data_train_lol_blur,size=opt.cropSize)
         test_set = get_eval_set(opt.data_val_lol_blur)
-
     elif opt.dataset == 'lolv2_real':
         train_set = get_lol_v2_training_set(opt.data_train_lolv2_real,size=opt.cropSize)
         test_set = get_eval_set(opt.data_val_lolv2_real)
-        
     elif opt.dataset == 'lolv2_syn':
         train_set = get_lol_v2_syn_training_set(opt.data_train_lolv2_syn,size=opt.cropSize)
         test_set = get_eval_set(opt.data_val_lolv2_syn)
-    
     elif opt.dataset == 'SID':
         train_set = get_SID_training_set(opt.data_train_SID,size=opt.cropSize)
         test_set = get_eval_set(opt.data_val_SID)
-        
     elif opt.dataset == 'SICE_mix':
         train_set = get_SICE_training_set(opt.data_train_SICE,size=opt.cropSize)
         test_set = get_SICE_eval_set(opt.data_val_SICE_mix)
-        
     elif opt.dataset == 'SICE_grad':
         train_set = get_SICE_training_set(opt.data_train_SICE,size=opt.cropSize)
         test_set = get_SICE_eval_set(opt.data_val_SICE_grad)
-        
     elif opt.dataset == 'fivek':
         train_set = get_fivek_training_set(opt.data_train_fivek,size=opt.cropSize)
         test_set = get_fivek_eval_set(opt.data_val_fivek)
@@ -227,7 +222,23 @@ def build_model():
     model = CIDNet().cuda()
     if opt.start_epoch > 0:
         pth = f"./weights/train/epoch_{opt.start_epoch}.pth"
-        model.load_state_dict(torch.load(pth, map_location=lambda storage, loc: storage))
+        state_dict = torch.load(pth, map_location=lambda storage, loc: storage)
+        # Hỗ trợ tự động loại bỏ tiền tố 'module.' nếu load checkpoint từ DataParallel/DDP vào
+        new_state_dict = {}
+        for k, v in state_dict.items():
+            name = k[7:] if k.startswith('module.') else k
+            new_state_dict[name] = v
+        model.load_state_dict(new_state_dict, strict=False)
+        print(f"Loaded weights from {pth}")
+        
+    # Bọc model bằng DataParallel nếu có từ 2 GPU trở lên
+    num_gpus = torch.cuda.device_count()
+    if num_gpus > 1:
+        print(f"===> Sử dụng song song {num_gpus} GPUs với torch.nn.DataParallel!")
+        model = torch.nn.DataParallel(model, device_ids=list(range(num_gpus)))
+    else:
+        print(f"===> Notice: Chỉ phát hiện {num_gpus} GPU. Chạy trên GPU đơn.")
+        
     return model
 
 def make_scheduler():
@@ -274,7 +285,6 @@ def init_loss():
     )
 
 if __name__ == '__main__':  
-    
     '''
     preparision
     '''
@@ -294,9 +304,10 @@ if __name__ == '__main__':
     if opt.start_epoch > 0:
         start_epoch = opt.start_epoch
     if not os.path.exists(opt.val_folder):          
-        os.mkdir(opt.val_folder) 
+        os.makedirs(opt.val_folder, exist_ok=True) 
         
     now = datetime.now().strftime("%Y-%m-%d-%H%M%S")
+    os.makedirs("./results/training", exist_ok=True)
     with open(f"./results/training/metrics{now}.md", "w") as f:
         f.write("dataset: "+ opt.dataset + "\n")  
         f.write(f"lr: {opt.lr}\n")  
@@ -357,7 +368,8 @@ if __name__ == '__main__':
             im_dir = opt.val_folder + output_folder + '*.png'
             is_lol_v1 = (opt.dataset == 'lol_v1')
             is_lolv2_real = (opt.dataset == 'lolv2_real')
-            eval(model, testing_data_loader, model_out_path, opt.val_folder+output_folder, 
+            # Lưu ý: truyền get_model_module(model) vào hàm eval() để tránh lỗi attribute khi dùng DataParallel
+            eval(get_model_module(model), testing_data_loader, model_out_path, opt.val_folder+output_folder, 
                  norm_size=norm_size, LOL=is_lol_v1, v2=is_lolv2_real, alpha=0.8)
             
             avg_psnr, avg_ssim, avg_lpips = metrics(im_dir, label_dir, use_GT_mean=False)
@@ -367,12 +379,9 @@ if __name__ == '__main__':
             psnr.append(avg_psnr)
             ssim.append(avg_ssim)
             lpips.append(avg_lpips)
-            print(psnr)
-            print(ssim)
-            print(lpips)
             with open(f"./results/training/metrics{now}.md", "a") as f:
                 f.write(f"| {epoch} | { avg_psnr:.4f} | {avg_ssim:.4f} | {avg_lpips:.4f} |\n") 
-
+            
             # --- Eval with GT Mean
             avg_psnr, avg_ssim, avg_lpips = metrics(im_dir, label_dir, use_GT_mean=True)
             print("===> Avg.PSNR (GT): {:.4f} dB ".format(avg_psnr))
