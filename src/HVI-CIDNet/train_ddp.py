@@ -63,7 +63,8 @@ def train_init():
             torch.cuda.set_device(0)
             
     seed_torch()
-    cudnn.benchmark = True
+    cudnn.benchmark = False
+    cudnn.deterministic = True
     cuda = opt.gpu_mode
     if cuda and not torch.cuda.is_available():
         raise Exception("No GPU found, please run without --cuda")
