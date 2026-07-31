@@ -1,0 +1,34 @@
+# Cấu hình dữ liệu
+data:
+  type: LLdataset           # Tên class trong dataset.py
+  data_dir: "./data"        # Thư mục sẽ chứa các file .txt
+  train_dataset: "LOLv2"    # Tiền tố tên file train
+  val_dataset: "LOLv2"      # Tiền tố tên file validation
+  patch_size: 256           # Kích thước cắt ảnh khi train
+  num_workers: 4            # Số luồng CPU load data
+  ckpt_dir: "results/stage1/checkpoints/"
+  
+# Cấu hình mạng CTDN (Decomposition)
+model:
+  channels: 64
+
+# Cấu hình hàm mất mát (Loss Weights)
+loss:
+  weight_recon: 1.0          # Trọng số loss tái tạo (Reconstruction), λ_rec
+  weight_reflectance: 0.5    # Trọng số loss Reflection Consistency, λ_edge / λ_color (đại diện)
+  weight_smooth: 0.5         # Trọng số làm mịn ánh sáng Illumination (L), λ_ill
+  weight_illumination: 0.5   # Trọng số loss Illumination Reconstruction, λ_ill
+
+# Cấu hình Optimizer và Learning Rate
+optim:
+  lr: 0.0002
+  lr_scheduler: "cosine"     # hoặc "step"
+
+# Cấu hình vòng lặp
+training:
+  n_epochs: 200
+  batch_size: 4             # Số ảnh trong mỗi batch khi train
+  validation_freq: 50       # Số bước (steps) giữa các lần validation
+
+sampling:
+  batch_size: 1             # Số ảnh trong mỗi batch khi test/validate
