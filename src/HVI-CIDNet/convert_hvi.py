@@ -55,8 +55,8 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(description='Convert RGB image to HVI color space and output HV and I images.')
     parser.add_argument('--input', type=str, required=True, help='Path to input image')
-    parser.add_argument('--output_hv', type=str, default='output_HV.png', help='Path to output HV image')
-    parser.add_argument('--output_i', type=str, default='output_I.png', help='Path to output I image')
+    parser.add_argument('--output_hv', type=str, default='output_hvi_low/output_HV.png', help='Path to output HV image')
+    parser.add_argument('--output_i', type=str, default='output_hvi_low/output_I.png', help='Path to output I image')
     
     args = parser.parse_args()
     

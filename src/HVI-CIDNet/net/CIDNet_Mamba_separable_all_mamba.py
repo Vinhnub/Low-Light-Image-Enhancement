@@ -5,6 +5,7 @@ from net.transformer_utils import *
 from net.LCA import *
 from huggingface_hub import PyTorchModelHubMixin
 from net.mmmamba import MMMamba
+from net.piecesmamba import FeaturePatchMamba
 
 class CIDNet(nn.Module, PyTorchModelHubMixin):
     def __init__(self, 
@@ -60,6 +61,20 @@ class CIDNet(nn.Module, PyTorchModelHubMixin):
         self.MMMamba_5 = MMMamba(ch3)
         self.MMMamba_6 = MMMamba(ch2)
         
+        # PieceMamba tách riêng cho mỗi nhánh I và HV ở từng block
+        self.PieceMamba_I_1 = FeaturePatchMamba(ch2)
+        self.PieceMamba_HV_1 = FeaturePatchMamba(ch2)
+        self.PieceMamba_I_2 = FeaturePatchMamba(ch3)
+        self.PieceMamba_HV_2 = FeaturePatchMamba(ch3)
+        self.PieceMamba_I_3 = FeaturePatchMamba(ch4)
+        self.PieceMamba_HV_3 = FeaturePatchMamba(ch4)
+        self.PieceMamba_I_4 = FeaturePatchMamba(ch4)
+        self.PieceMamba_HV_4 = FeaturePatchMamba(ch4)
+        self.PieceMamba_I_5 = FeaturePatchMamba(ch3)
+        self.PieceMamba_HV_5 = FeaturePatchMamba(ch3)
+        self.PieceMamba_I_6 = FeaturePatchMamba(ch2)
+        self.PieceMamba_HV_6 = FeaturePatchMamba(ch2)
+        
         self.trans = RGB_HVI()
         
     def forward(self, x, return_feats=False):
@@ -76,6 +91,8 @@ class CIDNet(nn.Module, PyTorchModelHubMixin):
 
         # BLOCK 1: MMMamba cập nhật đồng thời cả I và HV
         i_enc2, hv_2 = self.MMMamba_1([i_enc1, hv_1])
+        i_enc2 = self.PieceMamba_I_1(i_enc2)
+        hv_2 = self.PieceMamba_HV_1(hv_2)
         v_jump1 = i_enc2
         hv_jump1 = hv_2
         i_enc2 = self.IE_block2(i_enc2)
@@ -83,6 +100,8 @@ class CIDNet(nn.Module, PyTorchModelHubMixin):
         
         # BLOCK 2
         i_enc3, hv_3 = self.MMMamba_2([i_enc2, hv_2])
+        i_enc3 = self.PieceMamba_I_2(i_enc3)
+        hv_3 = self.PieceMamba_HV_2(hv_3)
         v_jump2 = i_enc3
         hv_jump2 = hv_3
         # Vẫn giữ nguyên logic biến cũ ở khối Encoder 3 như bạn yêu cầu
@@ -91,15 +110,21 @@ class CIDNet(nn.Module, PyTorchModelHubMixin):
         
         # BLOCK 3 (Bottleneck)
         i_enc4, hv_4 = self.MMMamba_3([i_enc3, hv_3])
+        i_enc4 = self.PieceMamba_I_3(i_enc4)
+        hv_4 = self.PieceMamba_HV_3(hv_4)
         
         # BLOCK 4 (Decoder start)
         i_dec4, hv_4 = self.MMMamba_4([i_enc4, hv_4])
+        i_dec4 = self.PieceMamba_I_4(i_dec4)
+        hv_4 = self.PieceMamba_HV_4(hv_4)
         
         hv_3 = self.HVD_block3(hv_4, hv_jump2)
         i_dec3 = self.ID_block3(i_dec4, v_jump2)
 
         # BLOCK 5
         i_dec2, hv_2 = self.MMMamba_5([i_dec3, hv_3])
+        i_dec2 = self.PieceMamba_I_5(i_dec2)
+        hv_2 = self.PieceMamba_HV_5(hv_2)
         
         hv_2 = self.HVD_block2(hv_2, hv_jump1)
         # Đã sửa bug mất não ở Decoder
@@ -107,6 +132,8 @@ class CIDNet(nn.Module, PyTorchModelHubMixin):
         
         # BLOCK 6
         i_dec1, hv_1 = self.MMMamba_6([i_dec2, hv_2])
+        i_dec1 = self.PieceMamba_I_6(i_dec1)
+        hv_1 = self.PieceMamba_HV_6(hv_1)
 
         # =================================
         

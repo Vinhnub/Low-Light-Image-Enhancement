@@ -281,3 +281,4 @@ Thumbs.db
 *.swo
 src/HVI-CIDNet/debug
 src/HVI-CIDNet/train_stage_1
+weights_and_results

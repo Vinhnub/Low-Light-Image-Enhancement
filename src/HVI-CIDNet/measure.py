@@ -1,5 +1,5 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = "0"
+# os.environ['CUDA_VISIBLE_DEVICES'] = "0"
 import torch
 import glob
 import cv2
@@ -129,7 +129,7 @@ if __name__ == '__main__':
         im_dir = './output/LOLv1/*.png'
         label_dir = 'E:/Pythonfile/Low-Light-Image-Enhancement/mydata/dataset/LOLv1/test/high/'
     if mea.lol_v2_real:
-        im_dir = 'E:/PythonFile/Project/Low-Light-Image-Enhancement/src/HVI-CIDNet/output/LOLv2_real_Mamba_SL/*.png'
+        im_dir = './output/LOLv2_real/*.png'
         label_dir = 'E:/PythonFile/Project/Low-Light-Image-Enhancement/mydata/dataset/dataset/LOLv2-real/Test/GT/'
     if mea.lol_v2_syn:
         im_dir = './output/LOLv2_syn/*.png'

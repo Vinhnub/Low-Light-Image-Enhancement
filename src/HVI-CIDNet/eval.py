@@ -1,12 +1,12 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+# os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 import argparse
 from tqdm import tqdm
 from data.data import *
 from torchvision import transforms
 from torch.utils.data import DataLoader
 from loss.losses import *
-from net.CIDNet_Mamba_separable_learning import CIDNet
+from net.CIDNet_base import CIDNet
 
 
 def eval(model, testing_data_loader, model_path, output_folder,norm_size=True,LOL=False,v2=False,unpaired=False,alpha=1.0,gamma=1.0):
@@ -100,13 +100,13 @@ if __name__ == '__main__':
         
             
     elif ep.lol_v2_real:
-        eval_data = DataLoader(dataset=get_eval_set("/kaggle/input/datasets/vinhnub/lolv2-real/LOLv2-real/Test/Input"), num_workers=num_workers, batch_size=1, shuffle=False)
+        eval_data = DataLoader(dataset=get_eval_set("E:/PythonFile/Project/Low-Light-Image-Enhancement/mydata/dataset/dataset/LOLv2-real/Test/Input"), num_workers=num_workers, batch_size=1, shuffle=False)
         output_folder = './output/LOLv2_real/'
         if ep.best_GT_mean:
             weight_path = './weights/LOLv2_real/w_perc.pth'
             alpha = 0.84
         elif ep.best_PSNR:
-            weight_path = '/kaggle/input/datasets/vinhnub/weightmamba/epoch_440_best_psnr.pth'
+            weight_path = "E:/PythonFile/Project/Low-Light-Image-Enhancement/weights_and_results/LoLv2_Real/LSGD-wP/wDW/epoch_560_best_psnr_ssim.pth"
             alpha = 0.8
         elif ep.best_SSIM:
             weight_path = './weights/LOLv2_real/best_SSIM.pth'
