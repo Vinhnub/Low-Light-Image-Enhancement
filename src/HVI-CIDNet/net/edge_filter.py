@@ -4,68 +4,56 @@ import torch.nn.functional as F
 
 class EdgeExtractor(nn.Module):
     """
-    Trích xuất bản đồ cạnh (edge map) từ ảnh đầu vào.
-    Module này bao gồm 2 bước:
-    1. Làm mờ (Gaussian Blur) để loại bỏ nhiễu hạt (noise), giúp các đường nét liền mạch hơn.
-    2. Sử dụng bộ lọc Sobel (theo 2 hướng X và Y) để trích xuất cạnh.
+    Trích xuất bản đồ cạnh (edge map) từ ảnh đầu vào, TÍCH HỢP TỪ LREMNet.
+    Module này bao gồm 3 bước chính:
+    1. Làm mờ (Gaussian Blur) để loại bỏ nhiễu hạt (noise).
+    2. Trích xuất đa hướng (Sobel X, Sobel Y, Laplacian) và dung hợp qua Conv2d 1x1 (có thể học).
+    3. Chuyển đổi thành điểm ưu tiên (Priority Score) qua Sigmoid.
     """
     def __init__(self, in_channels=3, blur_kernel_size=5, blur_sigma=1.0, rgb_to_gray=False):
-        """
-        Args:
-            in_channels: Số kênh đầu vào (vd: 3 cho RGB, 2 cho HV, 1 cho Gray).
-            blur_kernel_size: Kích thước kernel mờ.
-            blur_sigma: Độ lệch chuẩn cho Gaussian Blur.
-            rgb_to_gray: Nếu True và in_channels=3, sẽ chuyển RGB sang Gray (1 kênh) trước khi tìm cạnh.
-        """
         super(EdgeExtractor, self).__init__()
         self.in_channels = in_channels
         self.rgb_to_gray = (rgb_to_gray and in_channels == 3)
         
-        # Nếu chuyển RGB sang Gray, sau bước blur ta chỉ còn 1 kênh để qua Sobel
-        self.sobel_channels = 1 if self.rgb_to_gray else in_channels
-        
         # 1. Tạo Gaussian Blur Kernel
         self.blur_kernel_size = blur_kernel_size
         gaussian_kernel = self._create_gaussian_kernel(blur_kernel_size, blur_sigma)
-        
-        # Lặp lại kernel cho mỗi kênh đầu vào (để dùng cho depthwise convolution)
         gaussian_kernel = gaussian_kernel.repeat(in_channels, 1, 1, 1)
         self.register_buffer('gaussian_kernel', gaussian_kernel) 
         
-        # 2. Tạo Sobel Kernel
-        sobel_x = torch.tensor([[-1., 0., 1.], 
-                                [-2., 0., 2.], 
-                                [-1., 0., 1.]], dtype=torch.float32).view(1, 1, 3, 3)
-                                
-        sobel_y = torch.tensor([[-1., -2., -1.], 
-                                [ 0.,  0.,  0.], 
-                                [ 1.,  2.,  1.]], dtype=torch.float32).view(1, 1, 3, 3)
+        # 2. Tạo các bộ lọc trích xuất cạnh (Từ LREMNet)
+        self.register_buffer('sobel_x', torch.tensor([
+            [-1., 0., 1.], [-2., 0., 2.], [-1., 0., 1.]
+        ]).view(1, 1, 3, 3))
         
-        # Lặp lại Sobel kernel cho từng kênh (để áp dụng tính cạnh độc lập cho từng kênh)
-        sobel_x = sobel_x.repeat(self.sobel_channels, 1, 1, 1)
-        sobel_y = sobel_y.repeat(self.sobel_channels, 1, 1, 1)
+        self.register_buffer('sobel_y', torch.tensor([
+            [-1., -2., -1.], [ 0.,  0.,  0.], [ 1.,  2.,  1.]
+        ]).view(1, 1, 3, 3))
         
-        self.register_buffer('sobel_x', sobel_x)
-        self.register_buffer('sobel_y', sobel_y)
+        self.register_buffer('laplacian', torch.tensor([
+            [0., -1., 0.], [-1., 4., -1.], [0., -1., 0.]
+        ]).view(1, 1, 3, 3))
+        
+        # Lớp học dung hợp 3 bộ lọc (Channel Fusion)
+        # Khởi tạo có trọng số thay vì bias=False để học tốt hơn hoặc giữ nguyên bias=False như LREMNet gốc
+        self.channel_fusion = nn.Conv2d(3, 1, 1, bias=False)
+        
+        # Các tham số cho Priority Mapping
+        self.scale = nn.Parameter(torch.tensor(1.0))
+        self.offset = nn.Parameter(torch.tensor(0.0))
 
     def _create_gaussian_kernel(self, kernel_size, sigma):
-        """Hàm sinh ra ma trận trọng số cho Gaussian Blur"""
         coords = torch.arange(kernel_size, dtype=torch.float32) - (kernel_size - 1) / 2.0
         grid_x, grid_y = torch.meshgrid(coords, coords, indexing='ij')
         variance = sigma ** 2.0
-        
         gaussian = torch.exp(-(grid_x**2 + grid_y**2) / (2 * variance))
-        gaussian = gaussian / torch.sum(gaussian) # Chuẩn hóa để tổng bằng 1
-        
+        gaussian = gaussian / torch.sum(gaussian)
         return gaussian.view(1, 1, kernel_size, kernel_size)
 
     def forward(self, x, average_channels=False):
         """
-        Args:
-            x: Tensor đầu vào, kích thước [B, C, H, W]
-            average_channels: Nếu True, sẽ tính trung bình các bản đồ cạnh của từng kênh để gộp thành 1 kênh.
-        Returns:
-            edge_map: Bản đồ cạnh, kích thước [B, C, H, W] (hoặc [B, 1, H, W] nếu average_channels=True hoặc rgb_to_gray=True)
+        Lưu ý: Do tích hợp LREMNet, đầu ra sẽ luôn được gom về 1 kênh (Bản đồ ưu tiên).
+        Tham số average_channels được giữ lại để tương thích ngược với code cũ nhưng không còn tác dụng phụ.
         """
         B, C, H, W = x.shape
         if C != self.in_channels:
@@ -73,35 +61,45 @@ class EdgeExtractor(nn.Module):
             
         # --- BƯỚC 1: LÀM MỜ (BLUR) ---
         pad_blur = self.blur_kernel_size // 2
-        # Dùng padding mode='replicate' (nhân bản viền) để tránh viền ảnh bị lỗi vệt đen
         x_padded = F.pad(x, (pad_blur, pad_blur, pad_blur, pad_blur), mode='replicate')
-        
-        # Tính convolution từng kênh (groups=C)
         blurred = F.conv2d(x_padded, self.gaussian_kernel, groups=C)
         
-        # --- BƯỚC 2: CHUYỂN SANG GRAYSCALE (Tùy chọn cho RGB) ---
-        if self.rgb_to_gray:
-            # Công thức tính luma
-            weight = torch.tensor([0.299, 0.587, 0.114], dtype=x.dtype, device=x.device).view(1, 3, 1, 1)
-            target = torch.sum(blurred * weight, dim=1, keepdim=True) # shape: [B, 1, H, W]
+        # --- BƯỚC 2: GOM KÊNH (Theo logic LREMNet) ---
+        # Đưa về 1 kênh duy nhất trước khi tìm cạnh để dễ áp dụng dung hợp 3 hướng
+        if C > 1:
+            if self.rgb_to_gray:
+                weight = torch.tensor([0.299, 0.587, 0.114], dtype=x.dtype, device=x.device).view(1, C, 1, 1)
+                target = torch.sum(blurred * weight, dim=1, keepdim=True)
+            else:
+                target = blurred.mean(dim=1, keepdim=True)
         else:
-            target = blurred # Giữ nguyên số kênh: C (ví dụ: 2 kênh HV)
+            target = blurred
             
-        # --- BƯỚC 3: TRÍCH XUẤT CẠNH BẰNG SOBEL ---
+        # --- BƯỚC 3: TRÍCH XUẤT ĐA HƯỚNG ---
         target_padded = F.pad(target, (1, 1, 1, 1), mode='replicate')
+        grad_x = F.conv2d(target_padded, self.sobel_x)
+        grad_y = F.conv2d(target_padded, self.sobel_y)
+        grad_lap = F.conv2d(target_padded, self.laplacian)
         
-        # Trích xuất đạo hàm theo 2 hướng độc lập cho mỗi kênh (groups=self.sobel_channels)
-        edge_x = F.conv2d(target_padded, self.sobel_x, groups=self.sobel_channels)
-        edge_y = F.conv2d(target_padded, self.sobel_y, groups=self.sobel_channels)
+        # --- BƯỚC 4: DUNG HỢP (Học Trọng Số) ---
+        grad_stack = torch.cat([grad_x, grad_y, grad_lap], dim=1) # [B, 3, H, W]
+        gradient_magnitude = self.channel_fusion(grad_stack)      # [B, 1, H, W]
+        gradient_magnitude = torch.abs(gradient_magnitude)
         
-        # Tính biên độ (Magnitude) tổng hợp
-        edge_mag = torch.sqrt(edge_x**2 + edge_y**2 + 1e-6)
+        # --- BƯỚC 5: TẠO ĐIỂM ƯU TIÊN (Priority Score) ---
+        gradient_flat = gradient_magnitude.view(B, -1)
+        grad_min = gradient_flat.min(dim=1, keepdim=True)[0]
+        grad_max = gradient_flat.max(dim=1, keepdim=True)[0]
         
-        # Nếu muốn gộp (average) tất cả các kênh cạnh thành 1 kênh duy nhất
-        if average_channels and edge_mag.shape[1] > 1:
-            edge_mag = torch.mean(edge_mag, dim=1, keepdim=True)
-            
-        return edge_mag
+        # Chuẩn hóa Min-Max về [0, 1]
+        gradient_norm = (gradient_flat - grad_min) / (grad_max - grad_min + 1e-8)
+        gradient_norm = gradient_norm.view(B, 1, H, W)
+        
+        # Affine Transform & Sigmoid
+        priority_score = self.scale * gradient_norm + self.offset
+        edge_map = torch.sigmoid(priority_score)
+        
+        return edge_map
 
 if __name__ == '__main__':
     import os
@@ -118,7 +116,7 @@ if __name__ == '__main__':
 
     print("=== TEST EDGE EXTRACTOR ===")
     # Tìm một ảnh mẫu trong thư mục HVI-CIDNet
-    img_path = os.path.join(parent_dir, 'E:/PythonFile/Project/Low-Light-Image-Enhancement/mydata/dataset/dataset/LOLv2-real/Test/Input/00787.png')
+    img_path = os.path.join(parent_dir, r'E:\PythonFile\Project\Low-Light-Image-Enhancement\mydata\dataset\dataset\LOLv1\test\low\778.png')
     
     if os.path.exists(img_path):
         print(f"Đang đọc ảnh: {img_path}")
@@ -137,14 +135,14 @@ if __name__ == '__main__':
         i = hvi[:, 2:3, :, :]  # kênh cường độ sáng I
         
         # 3. Thử nghiệm trên nhánh HV (2 kênh)
-        hv_extractor = EdgeExtractor(in_channels=2, blur_kernel_size=9, blur_sigma=3.0)
+        hv_extractor = EdgeExtractor(in_channels=2, blur_kernel_size=5, blur_sigma=1.5)
         # Gộp thành 1 ảnh xám cạnh bằng average_channels=True
         edge_hv_avg = hv_extractor(hv, average_channels=True)
         # Hoặc giữ nguyên 2 kênh cạnh
         edge_hv_2ch = hv_extractor(hv, average_channels=False)
         
         # 4. Thử nghiệm trên nhánh I (1 kênh)
-        i_extractor = EdgeExtractor(in_channels=1, blur_kernel_size=3)
+        i_extractor = EdgeExtractor(in_channels=1, blur_kernel_size=3, blur_sigma=0.5)
         edge_i = i_extractor(i)
         
         # 5. Lưu ảnh kết quả ra thư mục output_test_edges
