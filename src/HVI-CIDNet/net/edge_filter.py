@@ -116,7 +116,7 @@ if __name__ == '__main__':
 
     print("=== TEST EDGE EXTRACTOR ===")
     # Tìm một ảnh mẫu trong thư mục HVI-CIDNet
-    img_path = os.path.join(parent_dir, r'E:\PythonFile\Project\Low-Light-Image-Enhancement\mydata\dataset\dataset\LOLv1\test\low\778.png')
+    img_path = os.path.join(parent_dir, r'E:\PythonFile\Project\Low-Light-Image-Enhancement\mydata\dataset\dataset\LOLv1\test\high\778.png')
     
     if os.path.exists(img_path):
         print(f"Đang đọc ảnh: {img_path}")

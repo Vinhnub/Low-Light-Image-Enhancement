@@ -13,7 +13,7 @@ import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data.distributed import DistributedSampler
 
-from net.CIDNet_Mamba_separable_learning import CIDNet
+from net.CIDNet_base_w_edge import CIDNet
 from data.options import option
 from measure import metrics
 from eval import eval
@@ -401,12 +401,12 @@ if __name__ == '__main__':
                 eval(get_model_module(model), testing_data_loader, model_out_path, opt.val_folder+output_folder, 
                      norm_size=norm_size, LOL=is_lol_v1, v2=is_lolv2_real, alpha=0.8)
                 
-                import shutil
-                target_img_path = os.path.join(opt.val_folder+output_folder, '00787.png')
-                if os.path.exists(target_img_path):
-                    debug_dir = './results/debug'
-                    os.makedirs(debug_dir, exist_ok=True)
-                    shutil.copy(target_img_path, os.path.join(debug_dir, f'00787_epoch_{epoch}.png'))
+                # import shutil
+                # target_img_path = os.path.join(opt.val_folder+output_folder, '00787.png')
+                # if os.path.exists(target_img_path):
+                #     debug_dir = './results/debug'
+                #     os.makedirs(debug_dir, exist_ok=True)
+                #     shutil.copy(target_img_path, os.path.join(debug_dir, f'00787_epoch_{epoch}.png'))
                 
                 avg_psnr, avg_ssim, avg_lpips = metrics(im_dir, label_dir, use_GT_mean=False)
                 print("===> Avg.PSNR: {:.4f} dB ".format(avg_psnr))
