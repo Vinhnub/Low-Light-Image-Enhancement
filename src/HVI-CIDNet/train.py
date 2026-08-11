@@ -7,7 +7,7 @@ import torch.optim as optim
 import torch.backends.cudnn as cudnn
 import numpy as np
 from torch.utils.data import DataLoader
-from net.CIDNet_Mamba_separable_learning import CIDNet
+from net.CIDNet_base_w_edge_tiny import CIDNet
 from data.options import option
 from measure import metrics
 from eval import eval
@@ -92,14 +92,14 @@ def train(epoch):
         output_hvi = model.HVIT(output_rgb)
         gt_hvi = model.HVIT(gt_rgb)
                 # --- Warm-up Loss Weights ---
-        warmup_epochs = 10     # Trọng số bằng 0 trong 10 epoch đầu
-        transition_epochs = 10 # Tăng dần trọng số từ 0 lên 1 trong 10 epoch tiếp theo
+        warmup_epochs = 1     # Trọng số bằng 0 trong 10 epoch đầu
+        transition_epochs = 1 # Tăng dần trọng số từ 0 lên 1 trong 10 epoch tiếp theo
         
         if epoch <= warmup_epochs:
             warm_up_multiplier = 0.0
         else:
             # Tăng dần tuyến tính từ 0.0 đến 1.0
-            warm_up_multiplier = min(1.0, (epoch - warmup_epochs) / transition_epochs)
+            warm_up_multiplier = min(1.0, (epoch - warmup_epochs) / (transition_epochs + 1e-8))
             
         # Tính toán riêng biệt từng loss cho RGB
         l1_rgb = L1_loss(output_rgb, gt_rgb)

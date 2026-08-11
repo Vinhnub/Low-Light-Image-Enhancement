@@ -21,12 +21,12 @@ class CIDNet(nn.Module, PyTorchModelHubMixin):
         # Trích xuất cạnh cho nhánh HV (tính cạnh 2 kênh H, V rồi gộp lại làm 1)
         #self.edge_hv_ext = EdgeExtractor(in_channels=2, blur_kernel_size=9, blur_sigma=3.0)
         # Trích xuất cạnh cho nhánh I (1 kênh)
-        self.edge_i_ext = EdgeExtractor(in_channels=1, blur_kernel_size=5, blur_sigma=1.0)
+        self.edge_i_ext = EdgeExtractor(in_channels=1, blur_kernel_size=3, blur_sigma=1.0)
         
         # HV_ways
         self.HVE_block0 = nn.Sequential(
             nn.ReplicationPad2d(1),
-            nn.Conv2d(3, ch1, 3, stride=1, padding=0, bias=False)
+            nn.Conv2d(4, ch1, 3, stride=1, padding=0, bias=False)
             )
         self.HVE_block1 = NormDownsample(ch1, ch2, use_norm = norm)
         self.HVE_block2 = NormDownsample(ch2, ch3, use_norm = norm)
@@ -80,14 +80,15 @@ class CIDNet(nn.Module, PyTorchModelHubMixin):
         
         # hv = hvi[:, 0:2, :, :]
         i = hvi[:, 2:3, :, :].to(dtypes)
+        dark_mask = 1.0 - i
         
         # --- TRÍCH XUẤT VÀ NỐI KÊNH EDGE ---
         # edge_hv = self.edge_hv_ext(hv, average_channels=True).to(dtypes) # [B, 1, H, W]
+        hvi_edge = torch.cat([hvi, dark_mask], dim=1)
         edge_i = self.edge_i_ext(i).to(dtypes) # [B, 1, H, W]
         
         # hvi_edge = torch.cat([hvi, edge_hv], dim=1) # [B, 4, H, W]
         i_edge = torch.cat([i, edge_i], dim=1)      # [B, 2, H, W]
-        hvi_edge = hvi
         
         # low
         i_enc0 = self.IE_block0(i_edge)
