@@ -282,3 +282,10 @@ Thumbs.db
 src/HVI-CIDNet/debug
 src/HVI-CIDNet/train_stage_1
 weights_and_results
+src/HVI-CIDNet/output_hvi_gt
+src/HVI-CIDNet/output_hvi_high
+src/HVI-CIDNet/output_hvi_low
+src/HVI-CIDNet/output_hvi_channels
+src/HVI-CIDNet/output_hvi_channels_low
+
+src/HVI-CIDNet/output_test_edges

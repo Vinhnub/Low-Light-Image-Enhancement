@@ -5,7 +5,6 @@ from net.transformer_utils import *
 from net.LCA import *
 from huggingface_hub import PyTorchModelHubMixin
 from net.mmmamba import MMMamba
-from net.piecesmamba import FeaturePatchMamba
 
 class CIDNet(nn.Module, PyTorchModelHubMixin):
     def __init__(self, 
@@ -53,27 +52,21 @@ class CIDNet(nn.Module, PyTorchModelHubMixin):
             )
 
         # THAY THẾ TOÀN BỘ ATTENTION BẰNG MAMBA
-        # MMMamba tự động cập nhật cả 2 nhánh (I và HV) bằng cơ chế đan xen chuỗi
-        self.MMMamba_1 = MMMamba(ch2)
-        self.MMMamba_2 = MMMamba(ch3)
-        self.MMMamba_3 = MMMamba(ch4)
-        self.MMMamba_4 = MMMamba(ch4)
-        self.MMMamba_5 = MMMamba(ch3)
-        self.MMMamba_6 = MMMamba(ch2)
-        
-        # PieceMamba tách riêng cho mỗi nhánh I và HV ở từng block
-        self.PieceMamba_I_1 = FeaturePatchMamba(ch2)
-        self.PieceMamba_HV_1 = FeaturePatchMamba(ch2)
-        self.PieceMamba_I_2 = FeaturePatchMamba(ch3)
-        self.PieceMamba_HV_2 = FeaturePatchMamba(ch3)
-        self.PieceMamba_I_3 = FeaturePatchMamba(ch4)
-        self.PieceMamba_HV_3 = FeaturePatchMamba(ch4)
-        self.PieceMamba_I_4 = FeaturePatchMamba(ch4)
-        self.PieceMamba_HV_4 = FeaturePatchMamba(ch4)
-        self.PieceMamba_I_5 = FeaturePatchMamba(ch3)
-        self.PieceMamba_HV_5 = FeaturePatchMamba(ch3)
-        self.PieceMamba_I_6 = FeaturePatchMamba(ch2)
-        self.PieceMamba_HV_6 = FeaturePatchMamba(ch2)
+        # 2 nhánh có 2 MMMamba riêng biệt (nhánh I và nhánh HV)
+        # Mỗi MMMamba nhận [nhánh_chính, nhánh_phụ] và trả về thông tin nhánh chính sau khi trộn
+        self.MMMamba_I_1 = MMMamba(ch2)
+        self.MMMamba_I_2 = MMMamba(ch3)
+        self.MMMamba_I_3 = MMMamba(ch4)
+        self.MMMamba_I_4 = MMMamba(ch4)
+        self.MMMamba_I_5 = MMMamba(ch3)
+        self.MMMamba_I_6 = MMMamba(ch2)
+
+        self.MMMamba_HV_1 = MMMamba(ch2)
+        self.MMMamba_HV_2 = MMMamba(ch3)
+        self.MMMamba_HV_3 = MMMamba(ch4)
+        self.MMMamba_HV_4 = MMMamba(ch4)
+        self.MMMamba_HV_5 = MMMamba(ch3)
+        self.MMMamba_HV_6 = MMMamba(ch2)
         
         self.trans = RGB_HVI()
         
@@ -89,19 +82,17 @@ class CIDNet(nn.Module, PyTorchModelHubMixin):
         i_jump0 = i_enc0
         hv_jump0 = hv_0
 
-        # BLOCK 1: MMMamba cập nhật đồng thời cả I và HV
-        i_enc2, hv_2 = self.MMMamba_1([i_enc1, hv_1])
-        i_enc2 = self.PieceMamba_I_1(i_enc2)
-        hv_2 = self.PieceMamba_HV_1(hv_2)
+        # BLOCK 1: Mỗi nhánh đi qua MMMamba riêng biệt
+        i_enc2, _ = self.MMMamba_I_1([i_enc1, hv_1])
+        hv_2, _ = self.MMMamba_HV_1([hv_1, i_enc1])
         v_jump1 = i_enc2
         hv_jump1 = hv_2
         i_enc2 = self.IE_block2(i_enc2)
         hv_2 = self.HVE_block2(hv_2)
         
         # BLOCK 2
-        i_enc3, hv_3 = self.MMMamba_2([i_enc2, hv_2])
-        i_enc3 = self.PieceMamba_I_2(i_enc3)
-        hv_3 = self.PieceMamba_HV_2(hv_3)
+        i_enc3, _ = self.MMMamba_I_2([i_enc2, hv_2])
+        hv_3, _ = self.MMMamba_HV_2([hv_2, i_enc2])
         v_jump2 = i_enc3
         hv_jump2 = hv_3
         # Vẫn giữ nguyên logic biến cũ ở khối Encoder 3 như bạn yêu cầu
@@ -109,31 +100,27 @@ class CIDNet(nn.Module, PyTorchModelHubMixin):
         hv_3 = self.HVE_block3(hv_2)
         
         # BLOCK 3 (Bottleneck)
-        i_enc4, hv_4 = self.MMMamba_3([i_enc3, hv_3])
-        i_enc4 = self.PieceMamba_I_3(i_enc4)
-        hv_4 = self.PieceMamba_HV_3(hv_4)
+        i_enc4, _ = self.MMMamba_I_3([i_enc3, hv_3])
+        hv_4, _ = self.MMMamba_HV_3([hv_3, i_enc3])
         
         # BLOCK 4 (Decoder start)
-        i_dec4, hv_4 = self.MMMamba_4([i_enc4, hv_4])
-        i_dec4 = self.PieceMamba_I_4(i_dec4)
-        hv_4 = self.PieceMamba_HV_4(hv_4)
+        i_dec4, _ = self.MMMamba_I_4([i_enc4, hv_4])
+        hv_4, _ = self.MMMamba_HV_4([hv_4, i_enc4])
         
         hv_3 = self.HVD_block3(hv_4, hv_jump2)
         i_dec3 = self.ID_block3(i_dec4, v_jump2)
 
         # BLOCK 5
-        i_dec2, hv_2 = self.MMMamba_5([i_dec3, hv_3])
-        i_dec2 = self.PieceMamba_I_5(i_dec2)
-        hv_2 = self.PieceMamba_HV_5(hv_2)
+        i_dec2, _ = self.MMMamba_I_5([i_dec3, hv_3])
+        hv_2, _ = self.MMMamba_HV_5([hv_3, i_dec3])
         
         hv_2 = self.HVD_block2(hv_2, hv_jump1)
         # Đã sửa bug mất não ở Decoder
         i_dec2 = self.ID_block2(i_dec2, v_jump1) 
         
         # BLOCK 6
-        i_dec1, hv_1 = self.MMMamba_6([i_dec2, hv_2])
-        i_dec1 = self.PieceMamba_I_6(i_dec1)
-        hv_1 = self.PieceMamba_HV_6(hv_1)
+        i_dec1, _ = self.MMMamba_I_6([i_dec2, hv_2])
+        hv_1, _ = self.MMMamba_HV_6([hv_2, i_dec2])
 
         # =================================
         

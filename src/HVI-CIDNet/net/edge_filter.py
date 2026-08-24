@@ -10,16 +10,10 @@ class EdgeExtractor(nn.Module):
     2. Trích xuất đa hướng (Sobel X, Sobel Y, Laplacian) và dung hợp qua Conv2d 1x1 (có thể học).
     3. Chuyển đổi thành điểm ưu tiên (Priority Score) qua Sigmoid.
     """
-    def __init__(self, in_channels=3, blur_kernel_size=5, blur_sigma=1.0, rgb_to_gray=False):
+    def __init__(self, in_channels=3, rgb_to_gray=False, **kwargs):
         super(EdgeExtractor, self).__init__()
         self.in_channels = in_channels
         self.rgb_to_gray = (rgb_to_gray and in_channels == 3)
-        
-        # 1. Tạo Gaussian Blur Kernel
-        self.blur_kernel_size = blur_kernel_size
-        gaussian_kernel = self._create_gaussian_kernel(blur_kernel_size, blur_sigma)
-        gaussian_kernel = gaussian_kernel.repeat(in_channels, 1, 1, 1)
-        self.register_buffer('gaussian_kernel', gaussian_kernel) 
         
         # 2. Tạo các bộ lọc trích xuất cạnh (Từ LREMNet)
         self.register_buffer('sobel_x', torch.tensor([
@@ -38,9 +32,9 @@ class EdgeExtractor(nn.Module):
         # Khởi tạo có trọng số thay vì bias=False để học tốt hơn hoặc giữ nguyên bias=False như LREMNet gốc
         self.channel_fusion = nn.Conv2d(3, 1, 1, bias=False)
         
-        # Các tham số cho Priority Mapping
-        self.scale = nn.Parameter(torch.tensor(1.0))
-        self.offset = nn.Parameter(torch.tensor(0.0))
+        # Các tham số cho Priority Mapping (Tăng scale và giảm offset để cạnh nét hơn, contrast cao hơn)
+        self.scale = nn.Parameter(torch.tensor(10.0))
+        self.offset = nn.Parameter(torch.tensor(-5.0))
 
     def _create_gaussian_kernel(self, kernel_size, sigma):
         coords = torch.arange(kernel_size, dtype=torch.float32) - (kernel_size - 1) / 2.0
@@ -59,21 +53,16 @@ class EdgeExtractor(nn.Module):
         if C != self.in_channels:
             raise ValueError(f"Module khởi tạo với in_channels={self.in_channels}, nhưng nhận được {C} kênh.")
             
-        # --- BƯỚC 1: LÀM MỜ (BLUR) ---
-        pad_blur = self.blur_kernel_size // 2
-        x_padded = F.pad(x, (pad_blur, pad_blur, pad_blur, pad_blur), mode='replicate')
-        blurred = F.conv2d(x_padded, self.gaussian_kernel, groups=C)
-        
-        # --- BƯỚC 2: GOM KÊNH (Theo logic LREMNet) ---
+        # --- BƯỚC 1: GOM KÊNH (BỎ QUA BLUR) ---
         # Đưa về 1 kênh duy nhất trước khi tìm cạnh để dễ áp dụng dung hợp 3 hướng
         if C > 1:
             if self.rgb_to_gray:
                 weight = torch.tensor([0.299, 0.587, 0.114], dtype=x.dtype, device=x.device).view(1, C, 1, 1)
-                target = torch.sum(blurred * weight, dim=1, keepdim=True)
+                target = torch.sum(x * weight, dim=1, keepdim=True)
             else:
-                target = blurred.mean(dim=1, keepdim=True)
+                target = x.mean(dim=1, keepdim=True)
         else:
-            target = blurred
+            target = x
             
         # --- BƯỚC 3: TRÍCH XUẤT ĐA HƯỚNG ---
         target_padded = F.pad(target, (1, 1, 1, 1), mode='replicate')

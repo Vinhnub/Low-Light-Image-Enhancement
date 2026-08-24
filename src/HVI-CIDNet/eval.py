@@ -6,7 +6,7 @@ from data.data import *
 from torchvision import transforms
 from torch.utils.data import DataLoader
 from loss.losses import *
-from net.CIDNet_base_w_edge import CIDNet
+from net.CIDNet_base import CIDNet
 
 
 def eval(model, testing_data_loader, model_path, output_folder,norm_size=True,LOL=False,v2=False,unpaired=False,alpha=1.0,gamma=1.0):
@@ -91,12 +91,12 @@ if __name__ == '__main__':
     num_workers = 1
     alpha = None
     if ep.lol:
-        eval_data = DataLoader(dataset=get_eval_set("/kaggle/input/datasets/vinhnub/lolv1-dataset/LOLv1/test/low"), num_workers=num_workers, batch_size=1, shuffle=False)
+        eval_data = DataLoader(dataset=get_eval_set(r"C:\Users\admin\Downloads\Test_LLIE"), num_workers=num_workers, batch_size=1, shuffle=False)
         output_folder = './output/LOLv1/'
         if ep.perc:
             weight_path = './weights/LOLv1/w_perc.pth'
         else:
-            weight_path = '/kaggle/input/datasets/vinhnub/weightmamba/epoch_440_best_psnr.pth'
+            weight_path = r'E:\PythonFile\Project\Low-Light-Image-Enhancement\weights_and_results\LoLv1\Base-wP\weight\epoch_460.pth'
         
             
     elif ep.lol_v2_real:
