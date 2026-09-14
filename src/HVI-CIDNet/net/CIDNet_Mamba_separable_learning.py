@@ -4,7 +4,7 @@ from net.HVI_transform import RGB_HVI
 from net.transformer_utils import *
 from net.LCA import *
 from huggingface_hub import PyTorchModelHubMixin
-from net.mmmamba import MMMamba
+from net.IG_Mamba import IG_Mamba
 
 class CIDNet(nn.Module, PyTorchModelHubMixin):
     def __init__(self, 
@@ -68,13 +68,13 @@ class CIDNet(nn.Module, PyTorchModelHubMixin):
         self.I_LCA5 = I_LCA(ch3, head3)
         self.I_LCA6 = I_LCA(ch2, head2)
 
-        # MMMamba
-        self.MMMamba_1 = MMMamba(ch2)
-        self.MMMamba_2 = MMMamba(ch3)
-        self.MMMamba_3 = MMMamba(ch4)
-        self.MMMamba_4 = MMMamba(ch4)
-        self.MMMamba_5 = MMMamba(ch3)
-        self.MMMamba_6 = MMMamba(ch2)
+        # IG_Mamba (Illumination-Guided Delta Modulation Mamba)
+        self.IG_Mamba_1 = IG_Mamba(ch2)
+        self.IG_Mamba_2 = IG_Mamba(ch3)
+        self.IG_Mamba_3 = IG_Mamba(ch4)
+        self.IG_Mamba_4 = IG_Mamba(ch4)
+        self.IG_Mamba_5 = IG_Mamba(ch3)
+        self.IG_Mamba_6 = IG_Mamba(ch2)
         
         self.trans = RGB_HVI()
         
@@ -91,37 +91,37 @@ class CIDNet(nn.Module, PyTorchModelHubMixin):
         hv_jump0 = hv_0
 
         i_enc2 = self.I_LCA1(i_enc1, hv_1)
-        _, hv_2 = self.MMMamba_1([i_enc1, hv_1])
+        hv_2 = self.IG_Mamba_1(hv_1, i_enc2)
         v_jump1 = i_enc2
         hv_jump1 = hv_2
         i_enc2 = self.IE_block2(i_enc2)
         hv_2 = self.HVE_block2(hv_2)
         
         i_enc3 = self.I_LCA2(i_enc2, hv_2)
-        _, hv_3 = self.MMMamba_2([i_enc2, hv_2])
+        hv_3 = self.IG_Mamba_2(hv_2, i_enc3)
         v_jump2 = i_enc3
         hv_jump2 = hv_3
         i_enc3 = self.IE_block3(i_enc2)
         hv_3 = self.HVE_block3(hv_2)
         
         i_enc4 = self.I_LCA3(i_enc3, hv_3)
-        _, hv_4 = self.MMMamba_3([i_enc3, hv_3])
+        hv_4 = self.IG_Mamba_3(hv_3, i_enc4)
         
-        i_dec4 = self.I_LCA4(i_enc4,hv_4)
-        _, hv_4 = self.MMMamba_4([i_enc4, hv_4])
+        i_dec4 = self.I_LCA4(i_enc4, hv_4)
+        hv_4 = self.IG_Mamba_4(hv_4, i_dec4)
         
         
         hv_3 = self.HVD_block3(hv_4, hv_jump2)
         i_dec3 = self.ID_block3(i_dec4, v_jump2)
 
         i_dec2 = self.I_LCA5(i_dec3, hv_3)
-        _, hv_2 = self.MMMamba_5([i_dec3, hv_3])
+        hv_2 = self.IG_Mamba_5(hv_3, i_dec2)
         
         hv_2 = self.HVD_block2(hv_2, hv_jump1)
         i_dec2 = self.ID_block2(i_dec3, v_jump1)
         
         i_dec1 = self.I_LCA6(i_dec2, hv_2)
-        _, hv_1 = self.MMMamba_6([i_dec2, hv_2])
+        hv_1 = self.IG_Mamba_6(hv_2, i_dec1)
 
         # =================================
         
