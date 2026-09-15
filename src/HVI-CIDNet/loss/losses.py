@@ -220,152 +220,149 @@ class SSIM(torch.nn.Module):
 
 
 _reduction_modes = ['none', 'mean', 'sum']
-class RegionLSGDLoss(nn.Module):
+
+class DarkFocusedGradientLoss(nn.Module):
+    """
+    Dark-Focused / Bright-Focused Spatial Gradient Difference Loss (Tên cũ: RegionLSGDLoss / LSGD).
+
+    Chức năng cốt lõi:
+    - So sánh sai khác gradient bậc một (Spatial Gradient Difference) giữa ảnh dự đoán (pred)
+      và ảnh mục tiêu (gt) theo cả hai hướng ngang (x) và dọc (y) để bảo toàn chi tiết và biên cạnh.
+    
+    Cơ chế Tập trung theo vùng sáng/tối (Focus Mechanism):
+    - Khi dark_focus=True: Tập trung PHẠT NẶNG NẾU SAI LỆCH Ở VÙNG TỐI.
+      Trọng số: weight = (1.0 - luminance)^gamma
+      (Vùng tối có trọng số phạt cao, vùng sáng có trọng số phạt thấp).
+    - Khi dark_focus=False: Tập trung PHẠT NẶNG NẾU SAI LỆCH Ở VÙNG SÁNG.
+      Trọng số: weight = (luminance)^gamma
+      (Vùng sáng có trọng số phạt cao, vùng tối có trọng số phạt thấp).
+    - Khi dark_focus=None: Phạt đồng đều trên toàn bộ ảnh (không dùng trọng số phân vùng).
+    """
 
     def __init__(
         self,
         loss_weight=1.0,
         reduction='mean',
-        use_dark_weight=True,
+        dark_focus=False,
+        dark_power=1.0,
         eps=1e-6,
+        use_dark_weight=None,  # Hỗ trợ tương thích ngược với code cũ
     ):
-
-        super(RegionLSGDLoss, self).__init__()
+        super(DarkFocusedGradientLoss, self).__init__()
 
         if reduction not in _reduction_modes:
             raise ValueError(
-                f'Unsupported reduction mode: '
-                f'{reduction}. '
-                f'Supported ones are: '
-                f'{_reduction_modes}'
+                f'Unsupported reduction mode: {reduction}. Supported ones are: {_reduction_modes}'
             )
 
         self.loss_weight = loss_weight
         self.reduction = reduction
-        self.use_dark_weight = use_dark_weight
+        # Nếu có truyền use_dark_weight từ code cũ, ưu tiên gán cho dark_focus
+        self.dark_focus = use_dark_weight if use_dark_weight is not None else dark_focus
+        self.dark_power = dark_power
         self.eps = eps
 
     def compute_spatial_gradient(self, img):
         """
-        Compute spatial first-order variation
-
-        img:
-            [B,C,H,W]
-
-        return:
-            grad_x, grad_y
+        Tính gradient không gian bậc nhất theo hướng x và y.
+        img: [B, C, H, W]
+        Trả về:
+            grad_x: [B, C, H, W - 1]
+            grad_y: [B, C, H - 1, W]
         """
-
-        grad_x = (
-            img[:, :, :, 1:]
-            - img[:, :, :, :-1]
-        )
-
-        grad_y = (
-            img[:, :, 1:, :]
-            - img[:, :, :-1, :]
-        )
-
+        grad_x = img[:, :, :, 1:] - img[:, :, :, :-1]
+        grad_y = img[:, :, 1:, :] - img[:, :, :-1, :]
         return grad_x, grad_y
 
-    def compute_weight_map(self, gt, is_hvi):
+    def compute_weight_map(self, gt, is_hvi=False):
         """
-        Dark-region weighting.
-
-        For RGB:
-            luminance-based
-
-        For HVI:
-            use I channel directly
+        Tính toán bản đồ trọng số:
+        - Nếu dark_focus=True:  Phạt vùng tối  -> weight = (1.0 - luminance) ^ dark_power
+        - Nếu dark_focus=False: Phạt vùng sáng -> weight = (luminance) ^ dark_power
         """
-
         channels = gt.shape[1]
 
-        # -------------------
-        # RGB
-        # -------------------
         if channels == 3:
-
-            luminance = gt[:, 2:3] if is_hvi else (
-                0.299 * gt[:, 0:1]
-                + 0.587 * gt[:, 1:2]
-                + 0.114 * gt[:, 2:3]
-            )
-
-        # -------------------
-        # grayscale
-        # -------------------
+            if is_hvi:
+                # Trong không gian HVI, kênh thứ 3 là kênh độ rọi I
+                luminance = gt[:, 2:3]
+            else:
+                # Trong không gian RGB, tính độ chói theo công thức chuẩn BT.601
+                luminance = (
+                    0.299 * gt[:, 0:1]
+                    + 0.587 * gt[:, 1:2]
+                    + 0.114 * gt[:, 2:3]
+                )
         elif channels == 1:
-
             luminance = gt
-
         else:
-            raise ValueError(
-                f'Unsupported channel size: {channels}'
-            )
+            raise ValueError(f'Unsupported channel size for weight map: {channels}')
 
-        # darker -> larger weight
-        weight = 1.0 - luminance
+        # Đảm bảo độ chói nằm trong khoảng [0, 1]
+        luminance = torch.clamp(luminance, min=0.0, max=1.0)
 
-        return weight.clamp(
-            min=self.eps,
-            max=1.0
-        )
+        # ----------------------------------------------------------------------
+        # PHÂN ĐỊNH TRỌNG SỐ THEO DARK_FOCUS:
+        # - dark_focus = True:  Phạt nặng nếu sai ở VÙNG TỐI (1.0 - luminance)
+        # - dark_focus = False: Phạt nặng nếu sai ở VÙNG SÁNG (luminance)
+        # ----------------------------------------------------------------------
+        if self.dark_focus is True:
+            target_weight = 1.0 - luminance
+        elif self.dark_focus is False:
+            target_weight = luminance
+        else:
+            # Nếu dark_focus là None: trọng số bằng 1.0 đồng đều
+            return torch.ones_like(luminance)
+
+        if self.dark_power != 1.0:
+            target_weight = target_weight.pow(self.dark_power)
+
+        weight = target_weight.clamp(min=self.eps, max=1.0)
+        return weight
 
     def reduction_fn(self, x):
-
         if self.reduction == 'mean':
             return x.mean()
-
         elif self.reduction == 'sum':
             return x.sum()
-
         return x
 
     def forward(self, pred, gt, is_hvi=False):
         """
-        pred:
-            output_rgb or output_hvi
-
-        gt:
-            gt_rgb or gt_hvi
+        pred: [B, C, H, W] - Ảnh đầu ra dự đoán của mô hình (RGB hoặc HVI)
+        gt:   [B, C, H, W] - Ảnh mục tiêu Ground-Truth (RGB hoặc HVI)
+        is_hvi: bool       - Đặt True nếu ảnh đầu vào đang ở không gian màu HVI
         """
-        pred_gx, pred_gy = (
-            self.compute_spatial_gradient(pred)
-        )
+        # 1. Tính toán gradient không gian cho pred và gt
+        pred_gx, pred_gy = self.compute_spatial_gradient(pred)
+        gt_gx, gt_gy = self.compute_spatial_gradient(gt)
 
-        gt_gx, gt_gy = (
-            self.compute_spatial_gradient(gt)
-        )
+        # 2. Tính sai lệch gradient bậc một (L1 Gradient Difference)
+        diff_x = torch.abs(pred_gx - gt_gx)
+        diff_y = torch.abs(pred_gy - gt_gy)
 
-        diff_x = torch.abs(
-            pred_gx - gt_gx
-        )
-
-        diff_y = torch.abs(
-            pred_gy - gt_gy
-        )
-
-        # -------------------
-        # region weighting
-        # -------------------
-        if self.use_dark_weight:
-
+        # 3. Áp dụng cơ chế trọng số (Dark Focus hoặc Bright Focus)
+        if self.dark_focus is not None:
             weight = self.compute_weight_map(gt, is_hvi=is_hvi)
-
             weight_x = weight[:, :, :, 1:]
             weight_y = weight[:, :, 1:, :]
 
-            diff_x = (diff_x * weight_x)
+            diff_x = diff_x * weight_x
+            diff_y = diff_y * weight_y
 
-            diff_y = (diff_y * weight_y)
-
+        # 4. Gom nhóm theo reduction và nhân loss weight
         loss_x = self.reduction_fn(diff_x)
         loss_y = self.reduction_fn(diff_y)
 
-        loss = (loss_x + loss_y)
+        loss = loss_x + loss_y
+        return loss * self.loss_weight
 
-        return (loss * self.loss_weight)
+
+# Alias giữ nguyên tương thích 100% với toàn bộ codebase cũ (train.py, train_ddp.py, eval.py)
+RegionLSGDLoss = DarkFocusedGradientLoss
+LSGDLoss = DarkFocusedGradientLoss
+DarkFocusedSpatialGradientLoss = DarkFocusedGradientLoss
+
 
 
 class ExposureControlLoss(nn.Module):

@@ -164,3 +164,6 @@ output
 weights
 flagged
 output_hf
+output_hvi
+output_noise
+output_noise_detect
