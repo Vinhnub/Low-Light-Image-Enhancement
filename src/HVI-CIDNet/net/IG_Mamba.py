@@ -187,7 +187,7 @@ class IG_Attention(nn.Module):
         dtype=None,
         enable_padding: bool = True,
         padding_mode: str = 'replicate',
-        dark_focus: bool = True,
+        dark_focus: bool = False,
         **kwargs,
     ):
         factory_kwargs = {"device": device, "dtype": dtype}

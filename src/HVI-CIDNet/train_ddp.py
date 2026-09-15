@@ -13,7 +13,7 @@ import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data.distributed import DistributedSampler
 
-from net.CIDNet_base_w_edge import CIDNet
+from net.CIDNet_Mamba_separable_learning import CIDNet
 from data.options import option
 from measure import metrics
 from eval import eval
@@ -127,12 +127,12 @@ def train(epoch, local_rank):
         gt_hvi = model_module.HVIT(gt_rgb)
         
         # --- Warm-up Loss Weights ---
-        warmup_epochs = 10
-        transition_epochs = 10
+        warmup_epochs = 0
+        transition_epochs = 0
         if epoch <= warmup_epochs:
             warm_up_multiplier = 0.0
         else:
-            warm_up_multiplier = min(1.0, (epoch - warmup_epochs) / transition_epochs)
+            warm_up_multiplier = min(1.0, (epoch - warmup_epochs) / (transition_epochs + 1e-8))
             
         l1_rgb = L1_loss(output_rgb, gt_rgb)
         l2_rgb = L2_loss(output_rgb, gt_rgb)
