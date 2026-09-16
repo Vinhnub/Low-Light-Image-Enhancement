@@ -88,6 +88,7 @@ def option():
     parser.add_argument('--s2_E_weight',  type=float, default=50.0)
     parser.add_argument('--s2_P_weight',  type=float, default=0)
     parser.add_argument('--s2_LSGD_weight', type=float, default=1.0)
+    parser.add_argument('--dark_focus', type=_str2bool, default=True, help='Enable dark focus for both IG_Mamba and LSGD loss (False focuses on bright regions)')
     
     # 2-Stage specific hyper-parameters
     parser.add_argument('--alpha', type=float, default=0.3, help='Target brightness blending for Stage 1 GT generation (0.0: dark like input, 1.0: bright like GT)')

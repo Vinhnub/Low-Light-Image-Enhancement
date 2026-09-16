@@ -10,7 +10,8 @@ class CIDNet(nn.Module, PyTorchModelHubMixin):
     def __init__(self, 
                  channels=[36, 36, 72, 144],
                  heads=[1, 2, 4, 8],
-                 norm=False
+                 norm=False,
+                 dark_focus=True
         ):
         super(CIDNet, self).__init__()
         
@@ -69,14 +70,24 @@ class CIDNet(nn.Module, PyTorchModelHubMixin):
         self.I_LCA6 = I_LCA(ch2, head2)
 
         # IG_Mamba (Illumination-Guided Delta Modulation Mamba)
-        self.IG_Mamba_1 = IG_Mamba(ch2)
-        self.IG_Mamba_2 = IG_Mamba(ch3)
-        self.IG_Mamba_3 = IG_Mamba(ch4)
-        self.IG_Mamba_4 = IG_Mamba(ch4)
-        self.IG_Mamba_5 = IG_Mamba(ch3)
-        self.IG_Mamba_6 = IG_Mamba(ch2)
+        self.IG_Mamba_1 = IG_Mamba(ch2, dark_focus=dark_focus)
+        self.IG_Mamba_2 = IG_Mamba(ch3, dark_focus=dark_focus)
+        self.IG_Mamba_3 = IG_Mamba(ch4, dark_focus=dark_focus)
+        self.IG_Mamba_4 = IG_Mamba(ch4, dark_focus=dark_focus)
+        self.IG_Mamba_5 = IG_Mamba(ch3, dark_focus=dark_focus)
+        self.IG_Mamba_6 = IG_Mamba(ch2, dark_focus=dark_focus)
         
         self.trans = RGB_HVI()
+
+    @property
+    def dark_focus(self) -> bool:
+        return self.IG_Mamba_1.dark_focus
+
+    @dark_focus.setter
+    def dark_focus(self, val: bool):
+        for m in self.modules():
+            if isinstance(m, IG_Mamba):
+                m.dark_focus = val
         
     def forward(self, x, return_feats=False):
         dtypes = x.dtype

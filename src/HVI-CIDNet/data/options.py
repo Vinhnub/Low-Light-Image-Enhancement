@@ -68,6 +68,7 @@ def option():
     parser.add_argument('--E_weight',  type=float, default=50.0)
     parser.add_argument('--P_weight',  type=float, default=0.01)
     parser.add_argument('--LSGD_weight', type=float, default=0.0)
+    parser.add_argument('--dark_focus', type=_str2bool, default=True, help='Enable dark focus for both IG_Mamba and LSGD loss (False focuses on bright regions)')
     
     # use random gamma function (enhancement curve) to improve generalization
     parser.add_argument('--gamma', type=_str2bool, default=False)

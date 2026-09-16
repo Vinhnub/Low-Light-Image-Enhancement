@@ -10,11 +10,16 @@ class EdgeExtractor(nn.Module):
     2. Trích xuất đa hướng (Sobel X, Sobel Y, Laplacian) và dung hợp qua Conv2d 1x1 (có thể học).
     3. Chuyển đổi thành điểm ưu tiên (Priority Score) qua Sigmoid.
     """
-    def __init__(self, in_channels=3, rgb_to_gray=False, **kwargs):
+    def __init__(self, in_channels=3, rgb_to_gray=False, use_blur=True, blur_kernel_size=3, blur_sigma=1.0, **kwargs):
         super(EdgeExtractor, self).__init__()
         self.in_channels = in_channels
         self.rgb_to_gray = (rgb_to_gray and in_channels == 3)
+        self.use_blur = use_blur
         
+        # 1. Bộ lọc Gaussian làm mờ dập tắt nhiễu hạt (Noise Suppression Pre-filter)
+        if self.use_blur:
+            self.register_buffer('gaussian_kernel', self._create_gaussian_kernel(blur_kernel_size, blur_sigma))
+
         # 2. Tạo các bộ lọc trích xuất cạnh (Từ LREMNet)
         self.register_buffer('sobel_x', torch.tensor([
             [-1., 0., 1.], [-2., 0., 2.], [-1., 0., 1.]
@@ -53,7 +58,7 @@ class EdgeExtractor(nn.Module):
         if C != self.in_channels:
             raise ValueError(f"Module khởi tạo với in_channels={self.in_channels}, nhưng nhận được {C} kênh.")
             
-        # --- BƯỚC 1: GOM KÊNH (BỎ QUA BLUR) ---
+        # --- BƯỚC 1: GOM KÊNH ---
         # Đưa về 1 kênh duy nhất trước khi tìm cạnh để dễ áp dụng dung hợp 3 hướng
         if C > 1:
             if self.rgb_to_gray:
@@ -63,6 +68,12 @@ class EdgeExtractor(nn.Module):
                 target = x.mean(dim=1, keepdim=True)
         else:
             target = x
+
+        # --- BƯỚC 2: LÀM MỜ DẬP TẮT NHIỄU HẠT (Gaussian Blur Pre-filter) ---
+        # Triệt tiêu các điểm nhiễu cô lập trước khi tính đạo hàm không gian
+        if self.use_blur:
+            target_blur_pad = F.pad(target, (1, 1, 1, 1), mode='replicate')
+            target = F.conv2d(target_blur_pad, self.gaussian_kernel)
             
         # --- BƯỚC 3: TRÍCH XUẤT ĐA HƯỚNG ---
         target_padded = F.pad(target, (1, 1, 1, 1), mode='replicate')

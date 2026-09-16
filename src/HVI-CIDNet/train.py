@@ -228,6 +228,15 @@ def build_model():
     if opt.start_epoch > 0:
         pth = f"./weights/train/epoch_{opt.start_epoch}.pth"
         model.load_state_dict(torch.load(pth, map_location=lambda storage, loc: storage))
+
+    # Cấu hình Dark Focus cho các module hỗ trợ (IG_Mamba)
+    ig_mamba_count = 0
+    for m in model.modules():
+        if hasattr(m, 'dark_focus'):
+            m.dark_focus = opt.dark_focus
+            ig_mamba_count += 1
+    focus_target = "DARK regions (vùng tối)" if opt.dark_focus else "BRIGHT regions (vùng sáng)"
+    print(f"===> Dark Focus: {opt.dark_focus} -> Tập trung ưu tiên: {focus_target} (đã đồng bộ {ig_mamba_count} modules)")
     return model
 
 def make_scheduler():
@@ -260,7 +269,7 @@ def init_loss():
     D_loss = SSIM(weight=D_weight).cuda()
     E_loss = EdgeLoss(loss_weight=E_weight).cuda()
     P_loss = PerceptualLoss({'conv1_2': 1, 'conv2_2': 1,'conv3_4': 1,'conv4_4': 1}, perceptual_weight = P_weight ,criterion='mse').cuda()
-    LSGD_loss = RegionLSGDLoss(loss_weight=LSGD_weight).cuda()
+    LSGD_loss = RegionLSGDLoss(loss_weight=LSGD_weight, dark_focus=opt.dark_focus).cuda()
     EXP_loss = ExposureControlLoss(patch_size=16, mean_val=0.6, loss_weight=0.0).cuda()
 
     return (
@@ -309,6 +318,7 @@ if __name__ == '__main__':
         f.write(f"E_weight: {opt.E_weight}\n")  
         f.write(f"P_weight: {opt.P_weight}\n")  
         f.write(f"LSGD_weight: {opt.LSGD_weight}\n")  
+        f.write(f"dark_focus: {opt.dark_focus}\n")  
         f.write("| Epochs | PSNR | SSIM | LPIPS |\n")  
         f.write("|----------------------|----------------------|----------------------|----------------------|\n")  
         

@@ -243,7 +243,7 @@ class DarkFocusedGradientLoss(nn.Module):
         self,
         loss_weight=1.0,
         reduction='mean',
-        dark_focus=False,
+        dark_focus=True,
         dark_power=1.0,
         eps=1e-6,
         use_dark_weight=None,  # Hỗ trợ tương thích ngược với code cũ

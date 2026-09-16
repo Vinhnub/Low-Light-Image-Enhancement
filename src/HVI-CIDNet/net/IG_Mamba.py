@@ -187,7 +187,7 @@ class IG_Attention(nn.Module):
         dtype=None,
         enable_padding: bool = True,
         padding_mode: str = 'replicate',
-        dark_focus: bool = False,
+        dark_focus: bool = True,
         **kwargs,
     ):
         factory_kwargs = {"device": device, "dtype": dtype}
@@ -509,7 +509,7 @@ class IG_Mamba(nn.Module):
         ffn_expansion_factor: float = 2.0,
         enable_padding: bool = True,
         padding_mode: str = 'replicate',
-        dark_focus: bool = False,
+        dark_focus: bool = True,
         **kwargs,
     ):
         super(IG_Mamba, self).__init__()
